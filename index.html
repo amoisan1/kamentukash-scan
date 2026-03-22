@@ -102,6 +102,17 @@
         }
         .badge { display: inline-block; padding: 12px 24px; border-radius: 15px; color: white; font-weight: bold; margin: 15px 0; text-transform: uppercase; }
         .btn-next { width: 100%; padding: 18px; border-radius: 15px; background: #212529; color: white; border: none; font-weight: bold; cursor: pointer; }
+		
+		.input-inscription {
+			width: 100%; padding: 12px; margin: 8px 0;
+			border: 2px solid #ced4da; border-radius: 10px;
+			box-sizing: border-box; font-size: 1rem;
+		}
+		.btn-save {
+			width: 100%; padding: 15px; border-radius: 15px;
+			background: var(--success); color: white;
+			border: none; font-weight: bold; cursor: pointer; margin-top: 10px;
+		}
     </style>
 </head>
 <body>
@@ -215,39 +226,66 @@
     }
 
     function onScanSuccess(decodedText) {
-        if (navigator.vibrate) navigator.vibrate(80);
-        stopScan();
-        
-        const cleanID = decodedText.trim();
-        // Recherche dans le cache local
-        const membre = membresCache.find(m => m.id.toString().trim() === cleanID);
-        
-        if(membre) {
-            // SI TROUVÉ : On affiche et ON ENVOIE au serveur
-            showResult(membre);
-            
-            const finalUrl = `${SCRIPT_URL}?code=${encodeURIComponent(cleanID)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-            fetch(finalUrl, { mode: 'no-cors' })
-                .then(() => console.log("Scan enregistré pour : " + membre.prenom))
-                .catch(() => console.error("Erreur d'envoi réseau"));
-        } else {
-            // SI INCONNU (Boîte de céréales, etc.) : On affiche l'erreur MAIS ON N'ENVOIE RIEN
-            showResult({ prenom: "Code", nom: "Inconnu", id: cleanID, etat: "NON LISTÉ" });
-            console.log("Code ignoré (non présent dans la liste des membres)");
-        }
-    }
+		if (navigator.vibrate) navigator.vibrate(80);
+		stopScan();
+		
+		const cleanID = decodedText.trim();
+		const membre = membresCache.find(m => m.id.toString().trim() === cleanID);
+		
+		if(membre) {
+			showResult(membre);
+			// Envoi normal du scan
+			const finalUrl = `${SCRIPT_URL}?code=${encodeURIComponent(cleanID)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+			fetch(finalUrl, { mode: 'no-cors' });
+		} else if (cleanID.startsWith("KAM-ID")) {
+			// C'est une carte du club mais personne n'est dessus
+			showResult({ id: cleanID, etat: "NOUVEAU" });
+		} else {
+			// Code totalement inconnu (ex: code barre de magasin)
+			alert("Ce code ne provient pas d'une carte Kamentukash.");
+			startScan();
+		}
+	}
 
     function showResult(m) {
-        document.getElementById('res-name').innerText = `${m.prenom} ${m.nom}`.toUpperCase();
-        document.getElementById('res-id').innerText = `ID: ${m.id}`;
-        const badge = document.getElementById('res-badge');
-        badge.innerText = m.etat;
-        const isValide = m.etat.toLowerCase() === 'actif';
-        badge.style.background = isValide ? "var(--success)" : "var(--error)";
-        document.getElementById('result-card').style.borderTop = `10px solid ${isValide ? 'var(--success)' : 'var(--error)'}`;
-        document.getElementById('overlay').style.display = 'block';
-        document.getElementById('result-card').style.display = 'block';
-    }
+		const resCard = document.getElementById('result-card');
+		const badge = document.getElementById('res-badge');
+		const resName = document.getElementById('res-name');
+		const resId = document.getElementById('res-id');
+		
+		// On nettoie le contenu précédent pour éviter les doublons
+		resCard.innerHTML = ''; 
+
+		if (m.etat !== "NOUVEAU") {
+			// --- CAS 1 : MEMBRE DÉJÀ EXISTANT ---
+			resName.innerText = `${m.prenom} ${m.nom}`.toUpperCase();
+			resId.innerText = `ID: ${m.id}`;
+			badge.innerText = m.etat;
+			const isValide = m.etat.toLowerCase() === 'actif';
+			badge.style.background = isValide ? "var(--success)" : "var(--error)";
+			
+			// Reconstruction du contenu classique
+			resCard.appendChild(resName);
+			resCard.appendChild(badge);
+			resCard.appendChild(resId);
+			resCard.innerHTML += `<button class="btn-next" onclick="closeCard()">SCANNER SUIVANT</button>`;
+			resCard.style.borderTop = `10px solid ${isValide ? 'var(--success)' : 'var(--error)'}`;
+		} else {
+			// --- CAS 2 : CARTE VIERGE (INSCRIPTION) ---
+			resCard.style.borderTop = `10px solid var(--primary)`;
+			resCard.innerHTML = `
+				<h2 style="margin-bottom:10px;">NOUVEAU MEMBRE</h2>
+				<p style="color:#666; font-size:0.9rem;">Attribuer la carte <b>${m.id}</b></p>
+				<input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
+				<input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
+				<button class="btn-save" onclick="sauvegarderNouveauMembre('${m.id}')">ENREGISTRER LE MEMBRE</button>
+				<button class="btn-next" style="background:#ccc; margin-top:8px;" onclick="closeCard()">ANNULER</button>
+			`;
+		}
+
+		document.getElementById('overlay').style.display = 'block';
+		resCard.style.display = 'block';
+	}
 
     function stopScan() {
         if(html5QrCode && html5QrCode.isScanning) {
@@ -260,6 +298,33 @@
         document.getElementById('result-card').style.display = 'none';
         startScan();
     }
+	async function sauvegarderNouveauMembre(idCarte) {
+		const prenom = document.getElementById('ins-prenom').value.trim();
+		const nom = document.getElementById('ins-nom').value.trim();
+		
+		if (!prenom || !nom) {
+			alert("Veuillez remplir le nom et le prénom !");
+			return;
+		}
+
+		const btn = document.querySelector('.btn-save');
+		btn.innerText = "SÉCURISATION...";
+		btn.disabled = true;
+
+		try {
+			const urlInscription = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(idCarte)}&prenom=${encodeURIComponent(prenom)}&nom=${encodeURIComponent(nom)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+			
+			await fetch(PROXY + encodeURIComponent(urlInscription));
+			
+			alert(`Félicitations ! ${prenom} est maintenant enregistré.`);
+			// On force une resynchronisation pour mettre à jour le cache local
+			location.reload(); 
+		} catch (e) {
+			alert("Erreur réseau. Le membre n'a pas pu être sauvé.");
+			btn.innerText = "RÉESSAYER";
+			btn.disabled = false;
+		}
+	}
 </script>
 </body>
 </html>
