@@ -102,6 +102,7 @@
     let membresCache = [];
     let presentsAujourdhui = new Set();
     let surveillantActif = "";
+	let fileAttenteScans = JSON.parse(localStorage.getItem('file_attente') || '[]');
 
     window.onload = initialiser;
 
@@ -149,6 +150,7 @@
 		// --- 4. SYNCHRONISATION EN ARRIÈRE-PLAN ---
 		// Si internet est là, ça mettra à jour le cache. Sinon, on garde le local.
 		syncMembres();
+		traiterFileAttente(); // Envoie les scans restés bloqués la veille
 	}
 
     async function syncMembres() {
@@ -220,16 +222,24 @@
     }
 
     function validerMembre(m) {
-        showResult(m);
-        // On tente l'envoi, mais on ne bloque pas si ça échoue
-		fetch(`${SCRIPT_URL}?code=${encodeURIComponent(m.id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' })
-		.catch(err => console.log("Scan sauvegardé localement, sera synchronisé plus tard par Google Sheets"));
-        
-        if (!presentsAujourdhui.has(m.id)) {
-            presentsAujourdhui.add(m.id);
-            document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
-        }
-    }
+		showResult(m);
+		
+		// On crée l'objet du scan
+		const scanData = {
+			code: m.id,
+			surveillant: surveillantActif,
+			timestamp: new Date().toISOString()
+		};
+
+		// On tente l'envoi intelligent
+		envoyerScan(scanData);
+		
+		// Mise à jour du compteur local (ça, ça marche toujours)
+		if (!presentsAujourdhui.has(m.id)) {
+			presentsAujourdhui.add(m.id);
+			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+		}
+	}
 
     function ouvrirRecherche() {
         document.getElementById('search-modal-overlay').style.display = 'block';
@@ -294,6 +304,54 @@
 
     function stopScan() { if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('reader-container').style.display = 'none'); }
     function closeCard() { document.getElementById('overlay').style.display = 'none'; document.getElementById('result-card').style.display = 'none'; }
+	async function envoyerScan(data) {
+		const url = `${SCRIPT_URL}?code=${encodeURIComponent(data.code)}&surveillant=${encodeURIComponent(data.surveillant)}`;
+		
+		try {
+			// On tente l'envoi
+			const response = await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+			// Si on arrive ici, c'est que ça a probablement fonctionné (ou au moins quitté le téléphone)
+			console.log("Scan envoyé avec succès");
+			
+			// Une fois qu'un scan est envoyé, on vérifie s'il y en a d'autres en attente
+			traiterFileAttente(); 
+		} catch (e) {
+			// ÉCHEC RÉSEAU : On stocke dans le téléphone
+			console.log("Hors-ligne : Scan sauvegardé localement");
+			fileAttenteScans.push(data);
+			localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
+			updateStatusAttente();
+		}
+	}
+
+	async function traiterFileAttente() {
+		if (fileAttenteScans.length === 0) return;
+
+		const scan = fileAttenteScans[0];
+		const url = `${SCRIPT_URL}?code=${encodeURIComponent(scan.code)}&surveillant=${encodeURIComponent(scan.surveillant)}`;
+
+		try {
+			await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+			// Succès ! On l'enlève de la file
+			fileAttenteScans.shift();
+			localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
+			console.log("Un scan en attente a été synchronisé");
+			
+			updateStatusAttente();
+			// On continue avec le suivant s'il y en a
+			traiterFileAttente(); 
+		} catch (e) {
+			// Toujours pas de réseau, on s'arrête là
+			console.log("Toujours hors-ligne, attente du réseau...");
+		}
+	}
+
+	function updateStatusAttente() {
+		const txt = document.getElementById('status-text');
+		if (fileAttenteScans.length > 0) {
+			txt.innerHTML = `<b style="color:red;">☁️ ${fileAttenteScans.length} scans en attente</b>`;
+		}
+	}
 </script>
 </body>
 </html>
