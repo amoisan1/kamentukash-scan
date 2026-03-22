@@ -47,7 +47,10 @@
 
 <div id="home-screen">
     <div id="info-surveillant" style="background: white; padding: 10px 25px; border-radius: 50px; color: var(--primary); font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.05);"></div>
-    <button class="btn-scan" onclick="startScan()">📷<br><br>LANCER LE SCAN</button>
+    <div id="stats-container" style="background: #e9ecef; padding: 10px 20px; border-radius: 15px; font-size: 0.9rem; color: #495057; font-weight: bold;">
+        👥 Présents aujourd'hui : <span id="nb-presents">0</span>
+    </div>
+	<button class="btn-scan" onclick="startScan()">📷<br><br>LANCER LE SCAN</button>
     <p style="color: #6c757d; font-size: 0.85rem; cursor: pointer; text-decoration: underline;" onclick="resetSurveillant()">🔄 Changer de surveillant</p>
 </div>
 
@@ -92,18 +95,24 @@
     }
 
     async function syncMembres() {
-        try {
-            const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
-            const data = await resp.json();
-            membresCache = data;
-            localStorage.setItem('membres_cache', JSON.stringify(data));
-            document.getElementById('status-dot').classList.add('online');
-            document.getElementById('status-text').innerText = `${data.length} membres synchronisés`;
-        } catch (e) {
-            membresCache = JSON.parse(localStorage.getItem('membres_cache') || '[]');
-            document.getElementById('status-text').innerText = `Mode Local (${membresCache.length})`;
-        }
-    }
+		try {
+			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
+			const data = await resp.json();
+			
+			// Mise à jour du cache et des variables
+			membresCache = data.membres; 
+			localStorage.setItem('membres_cache', JSON.stringify(data.membres));
+
+			// Mise à jour de l'affichage des stats
+			document.getElementById('nb-presents').innerText = data.totalPresents;
+			
+			document.getElementById('status-dot').classList.add('online');
+			document.getElementById('status-text').innerText = `${data.membres.length} membres sync`;
+		} catch (e) {
+			membresCache = JSON.parse(localStorage.getItem('membres_cache') || '[]');
+			document.getElementById('status-text').innerText = "Mode Hors-ligne";
+		}
+	}
 
     function validerSurveillant() {
         const val = document.getElementById('select-surveillant').value;
@@ -139,6 +148,8 @@
         if (m) {
             showResult(m);
             fetch(`${SCRIPT_URL}?code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
+			let actuel = parseInt(document.getElementById('nb-presents').innerText);
+			document.getElementById('nb-presents').innerText = actuel + 1;
         } else if (id.includes("KAM")) {
             showResult({ id: id, etat: "NOUVEAU" });
         } else {
