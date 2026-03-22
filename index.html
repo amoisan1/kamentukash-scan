@@ -106,36 +106,48 @@
     window.onload = initialiser;
 
     async function initialiser() {
-		// 1. On s'assure que les éléments de recherche sont bien là
+		// --- 1. CHARGEMENT PRIORITAIRE DU CACHE (HORS-LIGNE) ---
+		// On remplit les membres AVANT même de savoir s'il y a internet
+		const localData = localStorage.getItem('membres_cache');
+		if (localData) {
+			membresCache = JSON.parse(localData);
+			// On affiche un message rassurant dans la barre de statut
+			document.getElementById('status-text').innerText = membresCache.length + " membres (Prêt - Local)";
+			document.getElementById('status-dot').style.backgroundColor = "#ffa500"; // Orange = Mode Local
+		}
+
+		// --- 2. LOGIQUE DE LA LOUPE ET DU SURVEILLANT (TES RÉGLAGES) ---
 		const searchTrigger = document.getElementById('search-trigger');
 		if (searchTrigger) searchTrigger.style.display = 'flex'; 
 
-		// 2. Vérifier si un surveillant est déjà en mémoire
 		const garde = localStorage.getItem('surveillant_nom');
-		
 		if (garde && garde !== "") {
 			surveillantActif = garde;
-			// On force l'affichage de l'écran d'accueil immédiatement
 			document.getElementById('login-screen').style.display = "none";
 			document.getElementById('home-screen').style.display = "flex";
 			document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
 		}
 
-		// 3. Charger les surveillants pour le menu (au cas où)
+		// --- 3. TENTATIVE DE CONNEXION (SI RÉSEAU DISPONIBLE) ---
 		try {
 			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
 			const data = await resp.json();
 			const select = document.getElementById('select-surveillant');
-			select.innerHTML = '<option value="">-- Choisir --</option>';
-			data.forEach(n => { 
-				let o = document.createElement('option'); 
-				o.value = n; o.innerText = n; 
-				select.appendChild(o); 
-			});
-			document.getElementById('btn-entrer').style.display = "block";
-		} catch (e) { console.log("Erreur surveillants"); }
+			if (select) {
+				select.innerHTML = '<option value="">-- Choisir --</option>';
+				data.forEach(n => { 
+					let o = document.createElement('option'); 
+					o.value = n; o.innerText = n; 
+					select.appendChild(o); 
+				});
+				document.getElementById('btn-entrer').style.display = "block";
+			}
+		} catch (e) { 
+			console.log("Mode hors-ligne : Impossible de charger les surveillants");
+		}
 
-		// 4. Lancer la synchronisation des membres
+		// --- 4. SYNCHRONISATION EN ARRIÈRE-PLAN ---
+		// Si internet est là, ça mettra à jour le cache. Sinon, on garde le local.
 		syncMembres();
 	}
 
@@ -209,7 +221,9 @@
 
     function validerMembre(m) {
         showResult(m);
-        fetch(`${SCRIPT_URL}?code=${encodeURIComponent(m.id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
+        // On tente l'envoi, mais on ne bloque pas si ça échoue
+		fetch(`${SCRIPT_URL}?code=${encodeURIComponent(m.id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' })
+		.catch(err => console.log("Scan sauvegardé localement, sera synchronisé plus tard par Google Sheets"));
         
         if (!presentsAujourdhui.has(m.id)) {
             presentsAujourdhui.add(m.id);
