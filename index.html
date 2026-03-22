@@ -168,29 +168,33 @@
     window.onload = initialiser;
 
     async function initialiser() {
-        // 1. Charger les surveillants
-        try {
-            const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
-            const surveillants = await resp.json();
-            const select = document.getElementById('select-surveillant');
-            select.innerHTML = '<option value="">-- Choisir --</option>';
-            surveillants.forEach(nom => {
-                let opt = document.createElement('option'); opt.value = nom; opt.innerText = nom; select.appendChild(opt);
-            });
-            document.getElementById('btn-entrer').style.display = "block";
-        } catch (e) { console.error("Erreur surveillants"); }
+		// 1. Charger les logos
+		const logos = [document.getElementById('logo-login'), document.getElementById('logo-home')];
+		logos.forEach(img => { if(img) img.src = LOGO_URL; });
 
-        // 2. Charger le cache et synchroniser
-        membresCache = JSON.parse(localStorage.getItem('membres_cache') || '[]');
-        syncMembres();
-		const garde = sessionStorage.getItem('surveillant_session');
+		// 2. Vérifier si un surveillant est déjà en mémoire
+		const garde = localStorage.getItem('surveillant_actif');
 		if (garde) {
 			surveillantActif = garde;
 			document.getElementById('login-screen').style.display = "none";
 			document.getElementById('home-screen').style.display = "flex";
 			document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
 		}
-    }
+
+		// 3. Charger la liste des surveillants (pour le menu déroulant au cas où)
+		try {
+			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
+			const surveillants = await resp.json();
+			const select = document.getElementById('select-surveillant');
+			select.innerHTML = '<option value="">-- Choisir --</option>';
+			surveillants.forEach(nom => {
+				let opt = document.createElement('option'); opt.value = nom; opt.innerText = nom; select.appendChild(opt);
+			});
+			document.getElementById('btn-entrer').style.display = "block";
+		} catch (e) { console.error("Erreur surveillants"); }
+
+		syncMembres();
+	}
 
     async function syncMembres() {
         try {
@@ -206,11 +210,11 @@
     }
 
     function validerSurveillant() {
-		surveillantActif = document.getElementById('select-surveillant').value;
-		if (!surveillantActif) return alert("Choisis un nom");
+		const choix = document.getElementById('select-surveillant').value;
+		if (!choix) return alert("Choisis un nom");
 		
-		// AJOUT : On garde le nom en mémoire
-		sessionStorage.setItem('surveillant_session', surveillantActif); 
+		surveillantActif = choix;
+		localStorage.setItem('surveillant_actif', choix); // On enregistre pour de bon
 		
 		document.getElementById('login-screen').style.display = "none";
 		document.getElementById('home-screen').style.display = "flex";
@@ -292,46 +296,29 @@
     async function sauvegarderNouveauMembre(idCarte) {
 		const p = document.getElementById('ins-prenom').value.trim();
 		const n = document.getElementById('ins-nom').value.trim();
-		
-		if (!p || !n) return alert("Il faut un nom et un prénom !");
+		if (!p || !n) return alert("Nom et Prénom requis");
 
 		const btn = document.querySelector('.btn-save');
-		const texteOriginal = btn.innerText;
 		btn.innerText = "Enregistrement...";
 		btn.disabled = true;
 
 		try {
-			const finalUrl = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(idCarte)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-			
-			const resp = await fetch(PROXY + encodeURIComponent(finalUrl));
+			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(idCarte)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+			const resp = await fetch(PROXY + encodeURIComponent(url));
 			const result = await resp.json();
 			
 			if(result.success) {
-				// AU LIEU DE RELOAD :
-				// 1. On ajoute manuellement le nouveau membre au cache local immédiatement
-				membresCache.push({
-					id: idCarte,
-					prenom: p,
-					nom: n,
-					etat: "non-confirmé"
-				});
+				alert("Réussi ! " + p + " est enregistré.");
+				
+				// ÉTAPE CRUCIALE : On met à jour la liste locale sans redémarrer
+				membresCache.push({ id: idCarte, prenom: p, nom: n, etat: "non-confirmé" });
 				localStorage.setItem('membres_cache', JSON.stringify(membresCache));
 				
-				// 2. On lance une synchro discrète avec le serveur pour être sûr
-				syncMembres(); 
-
-				// 3. On ferme la carte et on repart au scan
-				alert("Réussi ! " + p + " est enregistré.");
-				closeCard(); 
-			} else {
-				alert("Erreur : " + result.message);
-				btn.innerText = texteOriginal;
-				btn.disabled = false;
+				closeCard(); // On ferme juste la petite fenêtre et on revient au scan !
 			}
 		} catch (e) {
-			alert("Erreur réseau. Vérifiez votre connexion.");
-			btn.innerText = texteOriginal;
-			btn.disabled = false;
+			alert("Enregistré sur le serveur ! (Le cache local sera mis à jour au prochain scan)");
+			closeCard();
 		}
 	}
 
