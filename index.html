@@ -228,21 +228,24 @@
     function onScanSuccess(decodedText) {
 		if (navigator.vibrate) navigator.vibrate(80);
 		stopScan();
-		
 		const cleanID = decodedText.trim();
-		const membre = membresCache.find(m => m.id.toString().trim() === cleanID);
 		
-		if(membre) {
+		// On cherche dans la liste des inscrits (qui est maintenant courte)
+		const membre = membresCache.find(m => m.id === cleanID);
+
+		if (membre) {
+			// CAS A : Le membre est déjà dans la base de données
 			showResult(membre);
-			// Envoi normal du scan
-			const finalUrl = `${SCRIPT_URL}?code=${encodeURIComponent(cleanID)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-			fetch(finalUrl, { mode: 'no-cors' });
-		} else if (cleanID.startsWith("KAM-ID")) {
-			// C'est une carte du club mais personne n'est dessus
+			fetch(`${SCRIPT_URL}?code=${encodeURIComponent(cleanID)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
+		} 
+		else if (cleanID.startsWith("KAM-ID")) {
+			// CAS B : L'ID est absent de la liste MAIS c'est un format de carte du club
+			// C'est donc une carte vierge prête à être attribuée !
 			showResult({ id: cleanID, etat: "NOUVEAU" });
-		} else {
-			// Code totalement inconnu (ex: code barre de magasin)
-			alert("Ce code ne provient pas d'une carte Kamentukash.");
+		} 
+		else {
+			// CAS C : C'est un code qui n'a rien à voir avec le club
+			alert("Code inconnu ou format non supporté.");
 			startScan();
 		}
 	}
