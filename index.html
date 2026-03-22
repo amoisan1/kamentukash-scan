@@ -3,159 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>Kamentukash Scan Pro</title>
-	<title>Kamentukash Scan Pro</title>
-    
-    <link rel="manifest" href="manifest.json">
-    
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="KScan">
-    <link rel="apple-touch-icon" href="https://lh3.googleusercontent.com/d/1A-V57tw9zdRExDgzHA6MSQr5GIZMMqur">
-    
-    <meta name="theme-color" content="#0056b3">
-    
+    <title>Kamentukash Scan Pro - FIX FINAL</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { 
-            --primary: #0056b3; 
-            --success: #2e7d32; 
-            --error: #d32f2f; 
+            --primary: #0056b3; --success: #2e7d32; --warning: #f39c12; --error: #d32f2f; 
             --bg-gradient: linear-gradient(135deg, #f0f4f8 0%, #d7e1ec 100%); 
-            --card-bg: rgba(255, 255, 255, 0.95);
         }
-        
-        body { 
-            font-family: 'Segoe UI', Roboto, sans-serif; 
-            margin: 0; 
-            background: var(--bg-gradient); 
-            background-attachment: fixed;
-            min-height: 100vh;
-            text-align: center; 
-            color: #1a2a3a; 
-            overflow-x: hidden; 
-        }
-        
-        /* Barrette de statut */
-        #status-bar { 
-            display: flex; align-items: center; justify-content: center;
-            padding: 12px; background: white; border-bottom: 1px solid rgba(0,0,0,0.05); 
-            font-size: 0.85rem; font-weight: 600; position: sticky; top: 0; z-index: 10;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg-gradient); text-align: center; min-height: 100vh; }
+        #status-bar { display: flex; align-items: center; justify-content: center; padding: 12px; background: white; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.85rem; font-weight: 600; position: sticky; top: 0; z-index: 10; }
         #status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 8px; }
         .online { background: #4CAF50 !important; box-shadow: 0 0 8px #4CAF50; }
-        #status-text { color: #555; }
-
-        .glass-card {
-            background: var(--card-bg);
-            padding: 30px 20px;
-            border-radius: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-            margin: 20px auto;
-            max-width: 320px;
-            border: 1px solid rgba(255,255,255,0.8);
-        }
-
-        .app-logo {
-            max-width: 140px;
-            height: auto;
-            margin-bottom: 10px;
-            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-            display: none;
-        }
-
-        #login-screen { 
-            height: 85vh; display: flex; flex-direction: column; 
-            align-items: center; justify-content: center;
-        }
-        
-        .select-style {
-            width: 100%; max-width: 280px; padding: 15px; border-radius: 12px; 
-            border: 2px solid #ced4da; font-size: 1rem; margin: 20px 0;
-            background: white;
-        }
-
+        .glass-card { background: rgba(255,255,255,0.95); padding: 30px 20px; border-radius: 25px; margin: 20px auto; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
+        .input-inscription { width: 100%; padding: 12px; margin: 8px 0; border: 2px solid #ced4da; border-radius: 10px; box-sizing: border-box; font-size: 1rem; }
+        .btn-save { width: 100%; padding: 15px; border-radius: 15px; background: var(--success); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        #login-screen { height: 85vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .select-style { width: 100%; max-width: 280px; padding: 15px; border-radius: 12px; border: 2px solid #ced4da; margin: 20px 0; font-size: 1rem; }
         #home-screen { display: none; height: 80vh; flex-direction: column; align-items: center; justify-content: center; gap: 20px; }
-        
-        .btn-scan { 
-            width: 190px; height: 190px; border-radius: 50%; 
-            background: var(--primary); color: white; border: 8px solid rgba(255,255,255,0.5); 
-            font-weight: bold; font-size: 1.1rem; cursor: pointer;
-            box-shadow: 0 15px 35px rgba(0, 86, 179, 0.3);
-            transition: transform 0.2s;
-        }
-        .btn-scan:active { transform: scale(0.92); }
-
-        .btn-valider {
-            padding: 16px 45px; border-radius: 50px; background: var(--primary);
-            color: white; border: none; font-weight: bold; cursor: pointer;
-        }
-
+        .btn-scan { width: 180px; height: 180px; border-radius: 50%; background: var(--primary); color: white; border: 8px solid rgba(255,255,255,0.5); font-weight: bold; font-size: 1.1rem; box-shadow: 0 15px 35px rgba(0, 86, 179, 0.3); }
         #reader-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; }
-        
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 200; backdrop-filter: blur(8px); }
-        #result-card { 
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 85%; max-width: 350px; padding: 30px; border-radius: 30px; 
-            background: white; z-index: 210; text-align: center;
-        }
+        #result-card { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 350px; padding: 30px; border-radius: 30px; background: white; z-index: 210; text-align: center; }
         .badge { display: inline-block; padding: 12px 24px; border-radius: 15px; color: white; font-weight: bold; margin: 15px 0; text-transform: uppercase; }
-        .btn-next { width: 100%; padding: 18px; border-radius: 15px; background: #212529; color: white; border: none; font-weight: bold; cursor: pointer; }
-		
-		.input-inscription {
-			width: 100%; padding: 12px; margin: 8px 0;
-			border: 2px solid #ced4da; border-radius: 10px;
-			box-sizing: border-box; font-size: 1rem;
-		}
-		.btn-save {
-			width: 100%; padding: 15px; border-radius: 15px;
-			background: var(--success); color: white;
-			border: none; font-weight: bold; cursor: pointer; margin-top: 10px;
-		}
+        .btn-next { width: 100%; padding: 18px; border-radius: 15px; background: #212529; color: white; border: none; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div id="status-bar">
-    <div id="status-dot"></div> <span id="status-text">Synchronisation...</span>
+    <div id="status-dot"></div> <span id="status-text">Initialisation...</span>
 </div>
 
 <div id="login-screen">
     <div class="glass-card">
-        <img src="" class="app-logo" id="logo-login" alt="Logo">
-        <h2 style="margin-top:10px;">Bienvenue</h2>
-        <p style="color: #6c757d;">Qui est surveillant aujourd'hui ?</p>
+        <h2 style="margin:0;">Bienvenue</h2>
+        <p style="color: #666;">Qui est surveillant aujourd'hui ?</p>
         <select id="select-surveillant" class="select-style">
-            <option value="">Chargement...</option>
+            <option value="">Chargement des noms...</option>
         </select>
-        <br>
-        <button class="btn-valider" id="btn-entrer" onclick="validerSurveillant()" style="display:none;">
-            VALIDER ET CONTINUER
-        </button>
+        <button class="btn-save" id="btn-entrer" onclick="validerSurveillant()" style="display:none; background:var(--primary);">VALIDER ET ENTRER</button>
     </div>
 </div>
 
 <div id="home-screen">
-    <img src="" class="app-logo" id="logo-home" alt="Logo" style="max-width: 110px;">
-    <div id="info-surveillant" style="background: white; padding: 12px 25px; border-radius: 50px; color: var(--primary); font-weight: 800; font-size: 0.9rem; box-shadow: 0 4px 10px rgba(0,0,0,0.05);"></div>
-    <h1 style="color: #0d2137; font-size: 1.8rem;">Kamentukash Scan</h1>
+    <div id="info-surveillant" style="background: white; padding: 10px 25px; border-radius: 50px; color: var(--primary); font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.05);"></div>
     <button class="btn-scan" onclick="startScan()">📷<br><br>LANCER LE SCAN</button>
-    <p style="color: #6c757d; font-size: 0.85rem; cursor: pointer; text-decoration: underline;" onclick="location.reload()">🔄 Changer de surveillant</p>
+    <p style="color: #6c757d; font-size: 0.85rem; cursor: pointer; text-decoration: underline;" onclick="resetSurveillant()">🔄 Changer de surveillant</p>
 </div>
 
 <div id="reader-container">
     <div id="reader" style="width: 100%; height: 100%;"></div>
-    <button onclick="stopScan()" style="position:absolute; bottom:50px; left:50%; transform:translateX(-50%); padding:15px 40px; border-radius:50px; background:#e63946; color:white; border:none; font-weight:bold; z-index: 101;">ANNULER</button>
+    <button onclick="stopScan()" style="position:absolute; bottom:50px; left:50%; transform:translateX(-50%); padding:15px 40px; border-radius:50px; background:red; color:white; border:none; z-index:101; font-weight:bold;">ANNULER</button>
 </div>
 
 <div id="overlay" class="overlay"></div>
-<div id="result-card">
-    <h2 id="res-name" style="margin:0; font-size:1.8rem; color: #1a2a3a;"></h2>
-    <div id="res-badge" class="badge"></div>
-    <p id="res-id" style="color:#adb5bd; font-family:monospace;"></p>
-    <button class="btn-next" onclick="closeCard()">SCANNER SUIVANT</button>
-</div>
+<div id="result-card"></div>
 
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQOsi7pSMMQRN_Tyw24vHFHcmlCI6HH_6fz0N8kDw81jL_sq1AH0xXBrEbj-9shFte/exec";
@@ -168,171 +70,142 @@
     window.onload = initialiser;
 
     async function initialiser() {
-		// 1. Charger les logos
-		const logos = [document.getElementById('logo-login'), document.getElementById('logo-home')];
-		logos.forEach(img => { if(img) img.src = LOGO_URL; });
+        // 1. Vérifier si un surveillant est déjà en mémoire
+        const garde = localStorage.getItem('surveillant_nom');
+        if (garde) {
+            surveillantActif = garde;
+            afficherHomeScreen();
+        }
 
-		// 2. Vérifier si un surveillant est déjà en mémoire
-		const garde = localStorage.getItem('surveillant_actif');
-		if (garde) {
-			surveillantActif = garde;
-			document.getElementById('login-screen').style.display = "none";
-			document.getElementById('home-screen').style.display = "flex";
-			document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
-		}
+        // 2. Charger les surveillants pour le menu
+        try {
+            const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
+            const data = await resp.json();
+            const select = document.getElementById('select-surveillant');
+            select.innerHTML = '<option value="">-- Choisir --</option>';
+            data.forEach(n => { let o = document.createElement('option'); o.value = n; o.innerText = n; select.appendChild(o); });
+            document.getElementById('btn-entrer').style.display = "block";
+        } catch (e) { document.getElementById('status-text').innerText = "Erreur réseau (Surveillants)"; }
 
-		// 3. Charger la liste des surveillants (pour le menu déroulant au cas où)
-		try {
-			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
-			const surveillants = await resp.json();
-			const select = document.getElementById('select-surveillant');
-			select.innerHTML = '<option value="">-- Choisir --</option>';
-			surveillants.forEach(nom => {
-				let opt = document.createElement('option'); opt.value = nom; opt.innerText = nom; select.appendChild(opt);
-			});
-			document.getElementById('btn-entrer').style.display = "block";
-		} catch (e) { console.error("Erreur surveillants"); }
-
-		syncMembres();
-	}
+        // 3. Charger les membres
+        syncMembres();
+    }
 
     async function syncMembres() {
         try {
             const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
             const data = await resp.json();
-            membresCache = data; // Ne contient que les membres avec un NOM (Colonne B)
+            membresCache = data;
             localStorage.setItem('membres_cache', JSON.stringify(data));
             document.getElementById('status-dot').classList.add('online');
-            document.getElementById('status-text').innerText = `${data.length} membres actifs sync`;
-        } catch (e) { 
-            document.getElementById('status-text').innerText = "Mode Hors-ligne"; 
+            document.getElementById('status-text').innerText = `${data.length} membres synchronisés`;
+        } catch (e) {
+            membresCache = JSON.parse(localStorage.getItem('membres_cache') || '[]');
+            document.getElementById('status-text').innerText = `Mode Local (${membresCache.length})`;
         }
     }
 
     function validerSurveillant() {
-		const choix = document.getElementById('select-surveillant').value;
-		if (!choix) return alert("Choisis un nom");
-		
-		surveillantActif = choix;
-		localStorage.setItem('surveillant_actif', choix); // On enregistre pour de bon
-		
-		document.getElementById('login-screen').style.display = "none";
-		document.getElementById('home-screen').style.display = "flex";
-		document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
-	}
+        const val = document.getElementById('select-surveillant').value;
+        if (!val) return alert("Veuillez choisir un nom");
+        surveillantActif = val;
+        localStorage.setItem('surveillant_nom', val);
+        afficherHomeScreen();
+    }
+
+    function resetSurveillant() {
+        localStorage.removeItem('surveillant_nom');
+        location.reload();
+    }
+
+    function afficherHomeScreen() {
+        document.getElementById('login-screen').style.display = "none";
+        document.getElementById('home-screen').style.display = "flex";
+        document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
+    }
 
     function startScan() {
         document.getElementById('reader-container').style.display = 'block';
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, onScanSuccess)
-        .catch(e => alert("Erreur caméra"));
+        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, onScanSuccess).catch(e => alert("Erreur caméra"));
     }
 
     function onScanSuccess(decodedText) {
         if (navigator.vibrate) navigator.vibrate(80);
         stopScan();
-        
-        const cleanID = decodedText.trim().toUpperCase(); // On force les majuscules pour éviter les erreurs
-        
-        // RECHERCHE : Est-ce que ce numéro est déjà attribué à quelqu'un ?
-        const membre = membresCache.find(m => m.id.trim().toUpperCase() === cleanID);
+        const id = decodedText.trim().toUpperCase();
+        const m = membresCache.find(x => x.id.toUpperCase() === id);
 
-        if (membre) {
-            // CAS A : Membre connu (Badge Vert ou Orange)
-            showResult(membre);
-            // Envoi du log de présence
-            fetch(`${SCRIPT_URL}?code=${encodeURIComponent(cleanID)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
-        } 
-        else if (cleanID.includes("KAM")) {
-            // CAS B : Numéro INCONNU dans le cache mais c'est une carte du club (contient "KAM")
-            // On déclenche le formulaire d'inscription
-            showResult({ id: cleanID, etat: "NOUVEAU" });
-        } 
-        else {
-            // CAS C : Vrai code inconnu
-            alert("CODE INCONNU : Ce n'est pas une carte du club (" + cleanID + ")");
+        if (m) {
+            showResult(m);
+            fetch(`${SCRIPT_URL}?code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
+        } else if (id.includes("KAM")) {
+            showResult({ id: id, etat: "NOUVEAU" });
+        } else {
+            alert("Code inconnu : " + id);
             startScan();
         }
     }
 
     function showResult(m) {
-        const resCard = document.getElementById('result-card');
-        const overlay = document.getElementById('overlay');
-        resCard.innerHTML = '';
-
+        const card = document.getElementById('result-card');
+        card.innerHTML = "";
+        
         if (m.etat === "NOUVEAU") {
-            // FORMULAIRE D'INSCRIPTION
-            resCard.style.borderTop = `10px solid var(--primary)`;
-            resCard.innerHTML = `
-                <h2 style="margin:0;">CARTE VIERGE</h2>
-                <p style="color:#666; font-size:0.9rem;">ID détecté : <b>${m.id}</b></p>
-                <div style="padding:10px 0;">
-                    <input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom du membre">
-                    <input type="text" id="ins-nom" class="input-inscription" placeholder="Nom du membre">
-                </div>
-                <button class="btn-save" onclick="sauvegarderNouveauMembre('${m.id}')">LIER CETTE CARTE</button>
-                <button class="btn-next" style="background:#ccc; margin-top:10px;" onclick="closeCard()">ANNULER</button>
+            card.style.borderTop = "10px solid var(--primary)";
+            card.innerHTML = `
+                <h2>CARTE VIERGE</h2>
+                <p>ID: ${m.id}</p>
+                <input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
+                <input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
+                <button class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
+                <button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>
             `;
         } else {
-            // AFFICHAGE BADGE EXISTANT
-            const etat = (m.etat || "").toLowerCase();
             let color = "var(--error)";
-            if (etat === "actif") color = "var(--success)";
-            if (etat === "non-confirmé") color = "var(--warning)";
-
-            resCard.style.borderTop = `10px solid ${color}`;
-            resCard.innerHTML = `
-                <h2 style="margin:0;">${m.prenom} ${m.nom}</h2>
+            if (m.etat.toLowerCase() === "actif") color = "var(--success)";
+            if (m.etat.toLowerCase() === "non-confirmé") color = "var(--warning)";
+            
+            card.style.borderTop = `10px solid ${color}`;
+            card.innerHTML = `
+                <h2>${m.prenom} ${m.nom}</h2>
                 <div class="badge" style="background:${color}">${m.etat.toUpperCase()}</div>
                 <p style="color:#888; font-family:monospace;">${m.id}</p>
                 <button class="btn-next" onclick="closeCard()">SUIVANT</button>
             `;
         }
-
-        overlay.style.display = 'block';
-        resCard.style.display = 'block';
+        document.getElementById('overlay').style.display = "block";
+        card.style.display = "block";
     }
 
-    async function sauvegarderNouveauMembre(idCarte) {
-		const p = document.getElementById('ins-prenom').value.trim();
-		const n = document.getElementById('ins-nom').value.trim();
-		if (!p || !n) return alert("Nom et Prénom requis");
+    async function sauvegarderMembre(id) {
+        const p = document.getElementById('ins-prenom').value.trim();
+        const n = document.getElementById('ins-nom').value.trim();
+        if (!p || !n) return alert("Veuillez remplir les deux champs");
 
-		const btn = document.querySelector('.btn-save');
-		btn.innerText = "Enregistrement...";
-		btn.disabled = true;
+        const btn = document.querySelector('.btn-save');
+        btn.innerText = "Envoi..."; btn.disabled = true;
 
-		try {
-			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(idCarte)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-			const resp = await fetch(PROXY + encodeURIComponent(url));
-			const result = await resp.json();
-			
-			if(result.success) {
-				alert("Réussi ! " + p + " est enregistré.");
-				
-				// ÉTAPE CRUCIALE : On met à jour la liste locale sans redémarrer
-				membresCache.push({ id: idCarte, prenom: p, nom: n, etat: "non-confirmé" });
-				localStorage.setItem('membres_cache', JSON.stringify(membresCache));
-				
-				closeCard(); // On ferme juste la petite fenêtre et on revient au scan !
-			}
-		} catch (e) {
-			alert("Enregistré sur le serveur ! (Le cache local sera mis à jour au prochain scan)");
-			closeCard();
-		}
-	}
+        try {
+            const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+            const resp = await fetch(PROXY + encodeURIComponent(url));
+            const resJson = await resp.json();
 
-    function stopScan() {
-        if(html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => { document.getElementById('reader-container').style.display = 'none'; });
-        } else { document.getElementById('reader-container').style.display = 'none'; }
+            if (resJson.success) {
+                alert("Enregistré !");
+                // On ajoute au cache local immédiatement
+                membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
+                localStorage.setItem('membres_cache', JSON.stringify(membresCache));
+                closeCard();
+            }
+        } catch (e) {
+            alert("Erreur réseau. Recommencez.");
+            btn.innerText = "ENREGISTRER"; btn.disabled = false;
+        }
     }
 
-    function closeCard() {
-        document.getElementById('overlay').style.display = 'none';
-        document.getElementById('result-card').style.display = 'none';
-        startScan();
-    }
+    function stopScan() { if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('reader-container').style.display = 'none'); }
+    function closeCard() { document.getElementById('overlay').style.display = 'none'; document.getElementById('result-card').style.display = 'none'; startScan(); }
 </script>
 </body>
 </html>
