@@ -68,6 +68,7 @@
 
     let html5QrCode;
     let membresCache = [];
+	let presentsAujourdhui = new Set(); // Pour stocker les IDs uniques déjà scannés
     let surveillantActif = "";
 
     window.onload = initialiser;
@@ -113,30 +114,46 @@
     }
 
     async function syncMembres() {
-        const txt = document.getElementById('status-text');
-        try {
-            const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
-            const data = await resp.json();
-            
-            // VERIFICATION CRUCIALE DU FORMAT
-            if (data && data.membres) {
-                // Nouveau format détecté
-                membresCache = data.membres;
-                localStorage.setItem('membres_cache', JSON.stringify(data.membres));
-                document.getElementById('nb-presents').innerText = data.totalPresents || 0;
-                txt.innerText = membresCache.length + " membres synchronisés";
-                document.getElementById('status-dot').classList.add('online');
-            } else if (Array.isArray(data)) {
-                // ANCIEN FORMAT DETECTÉ (Le Google Script n'est pas à jour !)
-                membresCache = data;
-                localStorage.setItem('membres_cache', JSON.stringify(data));
-                txt.innerText = data.length + " membres (Ancien Format)";
-                document.getElementById('nb-presents').innerText = "?";
-            }
-        } catch (e) {
-            txt.innerText = "Erreur de synchro / Hors-ligne";
-        }
-    }
+		const txt = document.getElementById('status-text');
+		try {
+			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
+			const data = await resp.json();
+			
+			// VERIFICATION CRUCIALE DU FORMAT
+			if (data && data.membres) {
+				// 1. Mise à jour de la liste des membres
+				membresCache = data.membres;
+				localStorage.setItem('membres_cache', JSON.stringify(data.membres));
+				
+				// 2. Initialisation du compteur de présence unique (Set)
+				// On vide la liste locale et on la remplit avec le nombre venant du serveur
+				presentsAujourdhui = new Set();
+				const nbPresentsServeur = data.totalPresents || 0;
+				
+				// On crée des entrées factices pour que .size corresponde au chiffre du serveur
+				for(let i = 0; i < nbPresentsServeur; i++) {
+					presentsAujourdhui.add("DEJA_PRESENT_" + i);
+				}
+
+				// 3. Mise à jour de l'affichage
+				document.getElementById('nb-presents').innerText = nbPresentsServeur;
+				txt.innerText = membresCache.length + " membres synchronisés";
+				document.getElementById('status-dot').classList.add('online');
+
+			} else if (Array.isArray(data)) {
+				// ANCIEN FORMAT DETECTÉ
+				membresCache = data;
+				localStorage.setItem('membres_cache', JSON.stringify(data));
+				txt.innerText = data.length + " membres (Ancien Format)";
+				document.getElementById('nb-presents').innerText = "?";
+			}
+		} catch (e) {
+			txt.innerText = "Erreur de synchro / Hors-ligne";
+			// En cas d'erreur, on essaie de charger le cache local s'il existe
+			const local = localStorage.getItem('membres_cache');
+			if(local) membresCache = JSON.parse(local);
+		}
+	}
 
     function validerSurveillant() {
         const val = document.getElementById('select-surveillant').value;
@@ -164,24 +181,36 @@
     }
 
     function onScanSuccess(decodedText) {
-        if (navigator.vibrate) navigator.vibrate(80);
-        stopScan();
-        const id = decodedText.trim().toUpperCase();
-        const m = membresCache.find(x => x.id && x.id.toUpperCase() === id);
+		if (navigator.vibrate) navigator.vibrate(80);
+		stopScan();
+		const id = decodedText.trim().toUpperCase();
+		const m = membresCache.find(x => x.id && x.id.toUpperCase() === id);
 
-        if (m) {
-            showResult(m);
-            fetch(`${SCRIPT_URL}?code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
-            // Incrémentation locale
-            const el = document.getElementById('nb-presents');
-            if (el && el.innerText !== "?") { el.innerText = parseInt(el.innerText) + 1; }
-        } else if (id.includes("KAM")) {
-            showResult({ id: id, etat: "NOUVEAU" });
-        } else {
-            alert("Inconnu : " + id);
-            startScan();
-        }
-    }
+		if (m) {
+			showResult(m);
+			
+			// Envoi du log au serveur
+			fetch(`${SCRIPT_URL}?code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
+
+			// LOGIQUE DU COMPTEUR UNIQUE :
+			// On vérifie si cet ID est déjà dans notre liste de présence du jour
+			if (!presentsAujourdhui.has(id)) {
+				presentsAujourdhui.add(id); // On l'ajoute à la liste
+				
+				// On met à jour l'affichage seulement si c'est un nouveau présent
+				const el = document.getElementById('nb-presents');
+				if (el) {
+					// On recalcule le total basé sur la taille de notre liste unique
+					el.innerText = presentsAujourdhui.size;
+				}
+			}
+		} else if (id.includes("KAM")) {
+			showResult({ id: id, etat: "NOUVEAU" });
+		} else {
+			alert("Inconnu : " + id);
+			startScan();
+		}
+	}
 
     function showResult(m) {
         const card = document.getElementById('result-card');
