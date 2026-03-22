@@ -183,6 +183,13 @@
         // 2. Charger le cache et synchroniser
         membresCache = JSON.parse(localStorage.getItem('membres_cache') || '[]');
         syncMembres();
+		const garde = sessionStorage.getItem('surveillant_session');
+		if (garde) {
+			surveillantActif = garde;
+			document.getElementById('login-screen').style.display = "none";
+			document.getElementById('home-screen').style.display = "flex";
+			document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
+		}
     }
 
     async function syncMembres() {
@@ -199,12 +206,16 @@
     }
 
     function validerSurveillant() {
-        surveillantActif = document.getElementById('select-surveillant').value;
-        if (!surveillantActif) return alert("Choisis un nom");
-        document.getElementById('login-screen').style.display = "none";
-        document.getElementById('home-screen').style.display = "flex";
-        document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
-    }
+		surveillantActif = document.getElementById('select-surveillant').value;
+		if (!surveillantActif) return alert("Choisis un nom");
+		
+		// AJOUT : On garde le nom en mémoire
+		sessionStorage.setItem('surveillant_session', surveillantActif); 
+		
+		document.getElementById('login-screen').style.display = "none";
+		document.getElementById('home-screen').style.display = "flex";
+		document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
+	}
 
     function startScan() {
         document.getElementById('reader-container').style.display = 'block';
@@ -279,32 +290,50 @@
     }
 
     async function sauvegarderNouveauMembre(idCarte) {
-        const p = document.getElementById('ins-prenom').value.trim();
-        const n = document.getElementById('ins-nom').value.trim();
-        
-        if (!p || !n) return alert("Il faut un nom et un prénom !");
+		const p = document.getElementById('ins-prenom').value.trim();
+		const n = document.getElementById('ins-nom').value.trim();
+		
+		if (!p || !n) return alert("Il faut un nom et un prénom !");
 
-        const btn = document.querySelector('.btn-save');
-        btn.innerText = "Enregistrement...";
-        btn.disabled = true;
+		const btn = document.querySelector('.btn-save');
+		const texteOriginal = btn.innerText;
+		btn.innerText = "Enregistrement...";
+		btn.disabled = true;
 
-        try {
-            const finalUrl = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(idCarte)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-            // On utilise le proxy pour attendre la réponse
-            const resp = await fetch(PROXY + encodeURIComponent(finalUrl));
-            const result = await resp.json();
-            
-            if(result.success) {
-                alert("Réussi ! " + p + " est enregistré.");
-                location.reload(); // Recharge pour vider le cache et resynchroniser
-            } else {
-                alert("Erreur : " + result.message);
-            }
-        } catch (e) {
-            alert("Erreur réseau, mais vérifiez votre fichier Excel dans quelques secondes.");
-            location.reload();
-        }
-    }
+		try {
+			const finalUrl = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(idCarte)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+			
+			const resp = await fetch(PROXY + encodeURIComponent(finalUrl));
+			const result = await resp.json();
+			
+			if(result.success) {
+				// AU LIEU DE RELOAD :
+				// 1. On ajoute manuellement le nouveau membre au cache local immédiatement
+				membresCache.push({
+					id: idCarte,
+					prenom: p,
+					nom: n,
+					etat: "non-confirmé"
+				});
+				localStorage.setItem('membres_cache', JSON.stringify(membresCache));
+				
+				// 2. On lance une synchro discrète avec le serveur pour être sûr
+				syncMembres(); 
+
+				// 3. On ferme la carte et on repart au scan
+				alert("Réussi ! " + p + " est enregistré.");
+				closeCard(); 
+			} else {
+				alert("Erreur : " + result.message);
+				btn.innerText = texteOriginal;
+				btn.disabled = false;
+			}
+		} catch (e) {
+			alert("Erreur réseau. Vérifiez votre connexion.");
+			btn.innerText = texteOriginal;
+			btn.disabled = false;
+		}
+	}
 
     function stopScan() {
         if(html5QrCode && html5QrCode.isScanning) {
