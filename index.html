@@ -73,14 +73,21 @@
     window.onload = initialiser;
 
     async function initialiser() {
-        // 1. Vérifier si un surveillant est déjà en mémoire
+        // 1. Charger le surveillant en mémoire
         const garde = localStorage.getItem('surveillant_nom');
         if (garde) {
             surveillantActif = garde;
             afficherHomeScreen();
         }
 
-        // 2. Charger les surveillants pour le menu
+        // 2. Pré-charger le cache local (pour éviter le undefined au départ)
+        const localData = localStorage.getItem('membres_cache');
+        if (localData) {
+            membresCache = JSON.parse(localData);
+            document.getElementById('status-text').innerText = `${membresCache.length} membres (Cache)`;
+        }
+
+        // 3. Charger les noms des surveillants pour le menu
         try {
             const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
             const data = await resp.json();
@@ -88,31 +95,38 @@
             select.innerHTML = '<option value="">-- Choisir --</option>';
             data.forEach(n => { let o = document.createElement('option'); o.value = n; o.innerText = n; select.appendChild(o); });
             document.getElementById('btn-entrer').style.display = "block";
-        } catch (e) { document.getElementById('status-text').innerText = "Erreur réseau (Surveillants)"; }
+        } catch (e) { 
+            document.getElementById('status-text').innerText = "Erreur de connexion"; 
+        }
 
-        // 3. Charger les membres
+        // 4. Lancer la synchronisation réelle
         syncMembres();
     }
 
     async function syncMembres() {
-		try {
-			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
-			const data = await resp.json();
-			
-			// Mise à jour du cache et des variables
-			membresCache = data.membres; 
-			localStorage.setItem('membres_cache', JSON.stringify(data.membres));
+        try {
+            const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
+            const data = await resp.json();
+            
+            // On vérifie que la structure reçue est la bonne
+            if (data && data.membres) {
+                membresCache = data.membres; 
+                localStorage.setItem('membres_cache', JSON.stringify(data.membres));
 
-			// Mise à jour de l'affichage des stats
-			document.getElementById('nb-presents').innerText = data.totalPresents;
-			
-			document.getElementById('status-dot').classList.add('online');
-			document.getElementById('status-text').innerText = `${data.membres.length} membres sync`;
-		} catch (e) {
-			membresCache = JSON.parse(localStorage.getItem('membres_cache') || '[]');
-			document.getElementById('status-text').innerText = "Mode Hors-ligne";
-		}
-	}
+                // Mise à jour du compteur de présents
+                const badgePresents = document.getElementById('nb-presents');
+                if (badgePresents) {
+                    badgePresents.innerText = data.totalPresents || 0;
+                }
+                
+                document.getElementById('status-dot').classList.add('online');
+                document.getElementById('status-text').innerText = `${data.membres.length} membres synchronisés`;
+            }
+        } catch (e) {
+            console.error("Erreur synchro:", e);
+            document.getElementById('status-text').innerText = "Mode Hors-ligne";
+        }
+    }
 
     function validerSurveillant() {
         const val = document.getElementById('select-surveillant').value;
@@ -143,13 +157,19 @@
         if (navigator.vibrate) navigator.vibrate(80);
         stopScan();
         const id = decodedText.trim().toUpperCase();
+        
+        // Recherche dans le cache
         const m = membresCache.find(x => x.id.toUpperCase() === id);
 
         if (m) {
             showResult(m);
+            // Envoi au serveur (log de présence)
             fetch(`${SCRIPT_URL}?code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
-			let actuel = parseInt(document.getElementById('nb-presents').innerText);
-			document.getElementById('nb-presents').innerText = actuel + 1;
+            
+            // Mise à jour visuelle immédiate du compteur
+            const el = document.getElementById('nb-presents');
+            if (el) { el.innerText = parseInt(el.innerText) + 1; }
+            
         } else if (id.includes("KAM")) {
             showResult({ id: id, etat: "NOUVEAU" });
         } else {
@@ -174,13 +194,14 @@
             `;
         } else {
             let color = "var(--error)";
-            if (m.etat.toLowerCase() === "actif") color = "var(--success)";
-            if (m.etat.toLowerCase() === "non-confirmé") color = "var(--warning)";
+            const etatClair = (m.etat || "INCONNU").toLowerCase();
+            if (etatClair === "actif") color = "var(--success)";
+            if (etatClair === "non-confirmé") color = "var(--warning)";
             
             card.style.borderTop = `10px solid ${color}`;
             card.innerHTML = `
                 <h2>${m.prenom} ${m.nom}</h2>
-                <div class="badge" style="background:${color}">${m.etat.toUpperCase()}</div>
+                <div class="badge" style="background:${color}">${(m.etat || "INCONNU").toUpperCase()}</div>
                 <p style="color:#888; font-family:monospace;">${m.id}</p>
                 <button class="btn-next" onclick="closeCard()">SUIVANT</button>
             `;
@@ -190,50 +211,37 @@
     }
 
     async function sauvegarderMembre(id) {
-		const p = document.getElementById('ins-prenom').value.trim();
-		const n = document.getElementById('ins-nom').value.trim();
-		if (!p || !n) return alert("Veuillez remplir les deux champs");
+        const p = document.getElementById('ins-prenom').value.trim();
+        const n = document.getElementById('ins-nom').value.trim();
+        if (!p || !n) return alert("Veuillez remplir les deux champs");
 
-		const btn = document.querySelector('.btn-save');
-		const texteOriginal = btn.innerText;
-		btn.innerText = "Envoi..."; 
-		btn.disabled = true;
+        const btn = document.querySelector('.btn-save');
+        btn.innerText = "Envoi..."; 
+        btn.disabled = true;
 
-		try {
-			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-			
-			// On envoie et on attend la réponse du serveur
-			const resp = await fetch(PROXY + encodeURIComponent(url));
-			const resJson = await resp.json();
+        try {
+            const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+            const resp = await fetch(PROXY + encodeURIComponent(url));
+            const resJson = await resp.json();
 
-			if (resJson.success) {
-				// ÉTAPE 1 : On l'ajoute au cache local pour qu'il soit reconnu au prochain scan
-				membresCache.push({ 
-					id: id, 
-					prenom: p, 
-					nom: n, 
-					etat: "non-confirmé" 
-				});
-				localStorage.setItem('membres_cache', JSON.stringify(membresCache));
+            if (resJson.success) {
+                // Ajout immédiat au cache local
+                membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
+                localStorage.setItem('membres_cache', JSON.stringify(membresCache));
 
-				// ÉTAPE 2 : On change le contenu de la carte pour dire "Succès" au lieu d'une alerte
-				const card = document.getElementById('result-card');
-				card.innerHTML = `
-					<div style="color:var(--success); font-weight:bold; font-size:1.2rem; padding:20px;">
-						✅ Enregistré !<br><span style="font-size:0.9rem; color:#666;">${p} est maintenant dans la liste.</span>
-					</div>
-					<button class="btn-next" onclick="closeCard()">CONTINUER LE SCAN</button>
-				`;
-				
-				// On ne fait SURTOUT PAS de location.reload() ici.
-			}
-		} catch (e) {
-			// En cas d'erreur réseau, on propose de réessayer sans recharger
-			btn.innerText = "ERREUR - RÉESSAYER ?";
-			btn.disabled = false;
-			console.error(e);
-		}
-	}
+                const card = document.getElementById('result-card');
+                card.innerHTML = `
+                    <div style="color:var(--success); font-weight:bold; font-size:1.2rem; padding:20px;">
+                        ✅ Enregistré !<br><span style="font-size:0.9rem; color:#666;">${p} est en attente de confirmation.</span>
+                    </div>
+                    <button class="btn-next" onclick="closeCard()">CONTINUER LE SCAN</button>
+                `;
+            }
+        } catch (e) {
+            alert("Erreur réseau. Réessayez.");
+            btn.innerText = "ENREGISTRER"; btn.disabled = false;
+        }
+    }
 
     function stopScan() { if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('reader-container').style.display = 'none'); }
     function closeCard() { document.getElementById('overlay').style.display = 'none'; document.getElementById('result-card').style.display = 'none'; startScan(); }
