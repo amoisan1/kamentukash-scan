@@ -179,30 +179,50 @@
     }
 
     async function sauvegarderMembre(id) {
-        const p = document.getElementById('ins-prenom').value.trim();
-        const n = document.getElementById('ins-nom').value.trim();
-        if (!p || !n) return alert("Veuillez remplir les deux champs");
+		const p = document.getElementById('ins-prenom').value.trim();
+		const n = document.getElementById('ins-nom').value.trim();
+		if (!p || !n) return alert("Veuillez remplir les deux champs");
 
-        const btn = document.querySelector('.btn-save');
-        btn.innerText = "Envoi..."; btn.disabled = true;
+		const btn = document.querySelector('.btn-save');
+		const texteOriginal = btn.innerText;
+		btn.innerText = "Envoi..."; 
+		btn.disabled = true;
 
-        try {
-            const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-            const resp = await fetch(PROXY + encodeURIComponent(url));
-            const resJson = await resp.json();
+		try {
+			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+			
+			// On envoie et on attend la réponse du serveur
+			const resp = await fetch(PROXY + encodeURIComponent(url));
+			const resJson = await resp.json();
 
-            if (resJson.success) {
-                alert("Enregistré !");
-                // On ajoute au cache local immédiatement
-                membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
-                localStorage.setItem('membres_cache', JSON.stringify(membresCache));
-                closeCard();
-            }
-        } catch (e) {
-            alert("Erreur réseau. Recommencez.");
-            btn.innerText = "ENREGISTRER"; btn.disabled = false;
-        }
-    }
+			if (resJson.success) {
+				// ÉTAPE 1 : On l'ajoute au cache local pour qu'il soit reconnu au prochain scan
+				membresCache.push({ 
+					id: id, 
+					prenom: p, 
+					nom: n, 
+					etat: "non-confirmé" 
+				});
+				localStorage.setItem('membres_cache', JSON.stringify(membresCache));
+
+				// ÉTAPE 2 : On change le contenu de la carte pour dire "Succès" au lieu d'une alerte
+				const card = document.getElementById('result-card');
+				card.innerHTML = `
+					<div style="color:var(--success); font-weight:bold; font-size:1.2rem; padding:20px;">
+						✅ Enregistré !<br><span style="font-size:0.9rem; color:#666;">${p} est maintenant dans la liste.</span>
+					</div>
+					<button class="btn-next" onclick="closeCard()">CONTINUER LE SCAN</button>
+				`;
+				
+				// On ne fait SURTOUT PAS de location.reload() ici.
+			}
+		} catch (e) {
+			// En cas d'erreur réseau, on propose de réessayer sans recharger
+			btn.innerText = "ERREUR - RÉESSAYER ?";
+			btn.disabled = false;
+			console.error(e);
+		}
+	}
 
     function stopScan() { if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('reader-container').style.display = 'none'); }
     function closeCard() { document.getElementById('overlay').style.display = 'none'; document.getElementById('result-card').style.display = 'none'; startScan(); }
