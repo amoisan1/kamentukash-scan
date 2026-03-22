@@ -308,41 +308,48 @@
 		const url = `${SCRIPT_URL}?code=${encodeURIComponent(data.code)}&surveillant=${encodeURIComponent(data.surveillant)}`;
 		
 		try {
-			// On tente l'envoi
-			const response = await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
-			// Si on arrive ici, c'est que ça a probablement fonctionné (ou au moins quitté le téléphone)
-			console.log("Scan envoyé avec succès");
+			// Tentative d'envoi
+			await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
 			
-			// Une fois qu'un scan est envoyé, on vérifie s'il y en a d'autres en attente
-			traiterFileAttente(); 
-		} catch (e) {
-			// ÉCHEC RÉSEAU : On stocke dans le téléphone
-			console.log("Hors-ligne : Scan sauvegardé localement");
-			fileAttenteScans.push(data);
-			localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
+			// Si ça passe, on nettoie le message d'attente
+			console.log("Scan envoyé !");
 			updateStatusAttente();
+		} catch (e) {
+			// Si ça rate, on ajoute à la file (si pas déjà dedans)
+			const existeDeja = fileAttenteScans.some(s => s.code === data.code && s.timestamp === data.timestamp);
+			if (!existeDeja) {
+				fileAttenteScans.push(data);
+				localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
+			}
+			updateStatusAttente();
+
+			// On prévoit un essai automatique dans 30 secondes
+			setTimeout(traiterFileAttente, 30000);
 		}
 	}
 
 	async function traiterFileAttente() {
-		if (fileAttenteScans.length === 0) return;
+		if (fileAttenteScans.length === 0) {
+			updateStatusAttente(); // Remet le statut au vert si tout est vide
+			return;
+		}
 
 		const scan = fileAttenteScans[0];
 		const url = `${SCRIPT_URL}?code=${encodeURIComponent(scan.code)}&surveillant=${encodeURIComponent(scan.surveillant)}`;
 
 		try {
+			// On essaie d'envoyer le premier de la liste
 			await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
-			// Succès ! On l'enlève de la file
+			
+			// Succès ! On l'enlève et on passe au suivant immédiatement
 			fileAttenteScans.shift();
 			localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
-			console.log("Un scan en attente a été synchronisé");
 			
-			updateStatusAttente();
-			// On continue avec le suivant s'il y en a
+			// On continue la boucle pour vider toute la pile
 			traiterFileAttente(); 
 		} catch (e) {
-			// Toujours pas de réseau, on s'arrête là
-			console.log("Toujours hors-ligne, attente du réseau...");
+			console.log("Échec de synchro : Toujours hors-ligne.");
+			updateStatusAttente();
 		}
 	}
 
@@ -352,6 +359,11 @@
 			txt.innerHTML = `<b style="color:red;">☁️ ${fileAttenteScans.length} scans en attente</b>`;
 		}
 	}
+	// Détecteur automatique de retour d'internet
+	window.addEventListener('online', () => {
+		console.log("Internet est de retour ! Synchronisation...");
+		traiterFileAttente(); 
+	});
 </script>
 </body>
 </html>
