@@ -73,58 +73,68 @@
     window.onload = initialiser;
 
     async function initialiser() {
-        // 1. Charger le surveillant en mémoire
+        // 1. Gestion du surveillant
         const garde = localStorage.getItem('surveillant_nom');
         if (garde) {
             surveillantActif = garde;
             afficherHomeScreen();
         }
 
-        // 2. Pré-charger le cache local (pour éviter le undefined au départ)
-        const localData = localStorage.getItem('membres_cache');
-        if (localData) {
-            membresCache = JSON.parse(localData);
-            document.getElementById('status-text').innerText = `${membresCache.length} membres (Cache)`;
+        // 2. Chargement sécurisé du cache
+        try {
+            const localData = localStorage.getItem('membres_cache');
+            if (localData) {
+                const parsed = JSON.parse(localData);
+                // Si c'est l'ancien format (une liste directe), on l'ignore
+                membresCache = Array.isArray(parsed) ? parsed : (parsed.membres || []);
+                document.getElementById('status-text').innerText = membresCache.length + " membres (Local)";
+            }
+        } catch(e) { 
+            localStorage.removeItem('membres_cache'); // Nettoyage si corrompu
         }
 
-        // 3. Charger les noms des surveillants pour le menu
+        // 3. Charger les surveillants
+        fetchSurveillants();
+
+        // 4. Lancer la synchro
+        syncMembres();
+    }
+
+    async function fetchSurveillants() {
         try {
             const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
             const data = await resp.json();
             const select = document.getElementById('select-surveillant');
+            if(!select) return;
             select.innerHTML = '<option value="">-- Choisir --</option>';
             data.forEach(n => { let o = document.createElement('option'); o.value = n; o.innerText = n; select.appendChild(o); });
             document.getElementById('btn-entrer').style.display = "block";
-        } catch (e) { 
-            document.getElementById('status-text').innerText = "Erreur de connexion"; 
-        }
-
-        // 4. Lancer la synchronisation réelle
-        syncMembres();
+        } catch (e) { console.error("Erreur surveillants"); }
     }
 
     async function syncMembres() {
+        const txt = document.getElementById('status-text');
         try {
             const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
             const data = await resp.json();
             
-            // On vérifie que la structure reçue est la bonne
+            // VERIFICATION CRUCIALE DU FORMAT
             if (data && data.membres) {
-                membresCache = data.membres; 
+                // Nouveau format détecté
+                membresCache = data.membres;
                 localStorage.setItem('membres_cache', JSON.stringify(data.membres));
-
-                // Mise à jour du compteur de présents
-                const badgePresents = document.getElementById('nb-presents');
-                if (badgePresents) {
-                    badgePresents.innerText = data.totalPresents || 0;
-                }
-                
+                document.getElementById('nb-presents').innerText = data.totalPresents || 0;
+                txt.innerText = membresCache.length + " membres synchronisés";
                 document.getElementById('status-dot').classList.add('online');
-                document.getElementById('status-text').innerText = `${data.membres.length} membres synchronisés`;
+            } else if (Array.isArray(data)) {
+                // ANCIEN FORMAT DETECTÉ (Le Google Script n'est pas à jour !)
+                membresCache = data;
+                localStorage.setItem('membres_cache', JSON.stringify(data));
+                txt.innerText = data.length + " membres (Ancien Format)";
+                document.getElementById('nb-presents').innerText = "?";
             }
         } catch (e) {
-            console.error("Erreur synchro:", e);
-            document.getElementById('status-text').innerText = "Mode Hors-ligne";
+            txt.innerText = "Erreur de synchro / Hors-ligne";
         }
     }
 
@@ -150,30 +160,25 @@
     function startScan() {
         document.getElementById('reader-container').style.display = 'block';
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, onScanSuccess).catch(e => alert("Erreur caméra"));
+        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, onScanSuccess).catch(e => alert("Caméra bloquée"));
     }
 
     function onScanSuccess(decodedText) {
         if (navigator.vibrate) navigator.vibrate(80);
         stopScan();
         const id = decodedText.trim().toUpperCase();
-        
-        // Recherche dans le cache
-        const m = membresCache.find(x => x.id.toUpperCase() === id);
+        const m = membresCache.find(x => x.id && x.id.toUpperCase() === id);
 
         if (m) {
             showResult(m);
-            // Envoi au serveur (log de présence)
             fetch(`${SCRIPT_URL}?code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
-            
-            // Mise à jour visuelle immédiate du compteur
+            // Incrémentation locale
             const el = document.getElementById('nb-presents');
-            if (el) { el.innerText = parseInt(el.innerText) + 1; }
-            
+            if (el && el.innerText !== "?") { el.innerText = parseInt(el.innerText) + 1; }
         } else if (id.includes("KAM")) {
             showResult({ id: id, etat: "NOUVEAU" });
         } else {
-            alert("Code inconnu : " + id);
+            alert("Inconnu : " + id);
             startScan();
         }
     }
@@ -181,30 +186,16 @@
     function showResult(m) {
         const card = document.getElementById('result-card');
         card.innerHTML = "";
-        
         if (m.etat === "NOUVEAU") {
             card.style.borderTop = "10px solid var(--primary)";
-            card.innerHTML = `
-                <h2>CARTE VIERGE</h2>
-                <p>ID: ${m.id}</p>
-                <input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
-                <input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
-                <button class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
-                <button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>
-            `;
+            card.innerHTML = `<h2>CARTE VIERGE</h2><p>ID: ${m.id}</p><input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom"><input type="text" id="ins-nom" class="input-inscription" placeholder="Nom"><button class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button><button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
         } else {
             let color = "var(--error)";
-            const etatClair = (m.etat || "INCONNU").toLowerCase();
-            if (etatClair === "actif") color = "var(--success)";
-            if (etatClair === "non-confirmé") color = "var(--warning)";
-            
-            card.style.borderTop = `10px solid ${color}`;
-            card.innerHTML = `
-                <h2>${m.prenom} ${m.nom}</h2>
-                <div class="badge" style="background:${color}">${(m.etat || "INCONNU").toUpperCase()}</div>
-                <p style="color:#888; font-family:monospace;">${m.id}</p>
-                <button class="btn-next" onclick="closeCard()">SUIVANT</button>
-            `;
+            const et = (m.etat || "").toLowerCase();
+            if (et === "actif") color = "var(--success)";
+            if (et === "non-confirmé") color = "var(--warning)";
+            card.style.borderTop = "10px solid " + color;
+            card.innerHTML = `<h2>${m.prenom} ${m.nom}</h2><div class="badge" style="background:${color}">${(m.etat || "INCONNU").toUpperCase()}</div><p style="color:#888; font-family:monospace;">${m.id}</p><button class="btn-next" onclick="closeCard()">SUIVANT</button>`;
         }
         document.getElementById('overlay').style.display = "block";
         card.style.display = "block";
@@ -213,34 +204,19 @@
     async function sauvegarderMembre(id) {
         const p = document.getElementById('ins-prenom').value.trim();
         const n = document.getElementById('ins-nom').value.trim();
-        if (!p || !n) return alert("Veuillez remplir les deux champs");
-
+        if (!p || !n) return alert("Champs vides");
         const btn = document.querySelector('.btn-save');
-        btn.innerText = "Envoi..."; 
-        btn.disabled = true;
-
+        btn.innerText = "Envoi..."; btn.disabled = true;
         try {
             const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
             const resp = await fetch(PROXY + encodeURIComponent(url));
-            const resJson = await resp.json();
-
-            if (resJson.success) {
-                // Ajout immédiat au cache local
+            const res = await resp.json();
+            if (res.success) {
                 membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
                 localStorage.setItem('membres_cache', JSON.stringify(membresCache));
-
-                const card = document.getElementById('result-card');
-                card.innerHTML = `
-                    <div style="color:var(--success); font-weight:bold; font-size:1.2rem; padding:20px;">
-                        ✅ Enregistré !<br><span style="font-size:0.9rem; color:#666;">${p} est en attente de confirmation.</span>
-                    </div>
-                    <button class="btn-next" onclick="closeCard()">CONTINUER LE SCAN</button>
-                `;
+                document.getElementById('result-card').innerHTML = `<div style="padding:20px; color:green; font-weight:bold;">✅ Enregistré !</div><button class="btn-next" onclick="closeCard()">CONTINUER</button>`;
             }
-        } catch (e) {
-            alert("Erreur réseau. Réessayez.");
-            btn.innerText = "ENREGISTRER"; btn.disabled = false;
-        }
+        } catch (e) { alert("Erreur réseau"); btn.innerText = "REESSAYER"; btn.disabled = false; }
     }
 
     function stopScan() { if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('reader-container').style.display = 'none'); }
