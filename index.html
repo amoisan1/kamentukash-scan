@@ -29,7 +29,7 @@
     </style>
 </head>
 <body>
-
+<audio id="audio-bip" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
 <div id="status-bar">
     <div id="status-dot"></div> <span id="status-text">Initialisation...</span>
 </div>
@@ -181,12 +181,17 @@
     }
 
     function onScanSuccess(decodedText) {
+		const bip = document.getElementById('audio-bip');
+		if (bip) {
+			bip.currentTime = 0; // Remet le son au début si on scanne vite
+			bip.play().catch(e => console.log("L'audio nécessite une interaction préalable"));
+		}
 		if (navigator.vibrate) navigator.vibrate(80);
 		stopScan();
 		
 		const id = decodedText.trim().toUpperCase();
 		const m = membresCache.find(x => x.id && x.id.toUpperCase() === id);
-
+		
 		if (m) {
 			showResult(m);
 			
