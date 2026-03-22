@@ -106,23 +106,38 @@
     window.onload = initialiser;
 
     async function initialiser() {
-        const garde = localStorage.getItem('surveillant_nom');
-        if (garde) { surveillantActif = garde; afficherHomeScreen(); }
+		// 1. On s'assure que les éléments de recherche sont bien là
+		const searchTrigger = document.getElementById('search-trigger');
+		if (searchTrigger) searchTrigger.style.display = 'flex'; 
 
-        const localData = localStorage.getItem('membres_cache');
-        if (localData) { membresCache = JSON.parse(localData); }
+		// 2. Vérifier si un surveillant est déjà en mémoire
+		const garde = localStorage.getItem('surveillant_nom');
+		
+		if (garde && garde !== "") {
+			surveillantActif = garde;
+			// On force l'affichage de l'écran d'accueil immédiatement
+			document.getElementById('login-screen').style.display = "none";
+			document.getElementById('home-screen').style.display = "flex";
+			document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
+		}
 
-        try {
-            const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
-            const data = await resp.json();
-            const select = document.getElementById('select-surveillant');
-            select.innerHTML = '<option value="">-- Choisir --</option>';
-            data.forEach(n => { let o = document.createElement('option'); o.value = n; o.innerText = n; select.appendChild(o); });
-            document.getElementById('btn-entrer').style.display = "block";
-        } catch (e) { console.log("Erreur chargement surveillants"); }
+		// 3. Charger les surveillants pour le menu (au cas où)
+		try {
+			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
+			const data = await resp.json();
+			const select = document.getElementById('select-surveillant');
+			select.innerHTML = '<option value="">-- Choisir --</option>';
+			data.forEach(n => { 
+				let o = document.createElement('option'); 
+				o.value = n; o.innerText = n; 
+				select.appendChild(o); 
+			});
+			document.getElementById('btn-entrer').style.display = "block";
+		} catch (e) { console.log("Erreur surveillants"); }
 
-        syncMembres();
-    }
+		// 4. Lancer la synchronisation des membres
+		syncMembres();
+	}
 
     async function syncMembres() {
         const txt = document.getElementById('status-text');
@@ -156,10 +171,15 @@
     function resetSurveillant() { localStorage.removeItem('surveillant_nom'); location.reload(); }
 
     function afficherHomeScreen() {
-        document.getElementById('login-screen').style.display = "none";
-        document.getElementById('home-screen').style.display = "flex";
-        document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
-    }
+		// Cette fonction est appelée quand on valide manuellement
+		document.getElementById('login-screen').style.display = "none";
+		document.getElementById('home-screen').style.display = "flex";
+		document.getElementById('info-surveillant').innerText = "Surveillant : " + surveillantActif;
+		
+		// On force la visibilité de la recherche ici aussi
+		const st = document.getElementById('search-trigger');
+		if (st) st.style.display = 'flex';
+	}
 
     function startScan() {
         document.getElementById('reader-container').style.display = 'block';
