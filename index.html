@@ -183,35 +183,42 @@
     function onScanSuccess(decodedText) {
 		if (navigator.vibrate) navigator.vibrate(80);
 		stopScan();
+		
 		const id = decodedText.trim().toUpperCase();
 		const m = membresCache.find(x => x.id && x.id.toUpperCase() === id);
 
 		if (m) {
 			showResult(m);
 			
-			// Envoi du log au serveur
+			// 1. Envoi discret du log au serveur (Google Sheets)
 			fetch(`${SCRIPT_URL}?code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`, { mode: 'no-cors' });
 
-			// LOGIQUE DU COMPTEUR UNIQUE :
-			// On vérifie si cet ID est déjà dans notre liste de présence du jour
+			// 2. LOGIQUE DU COMPTEUR UNIQUE
+			// On vérifie si cet ID est déjà présent dans notre Set (notre liste sans doublons)
 			if (!presentsAujourdhui.has(id)) {
-				presentsAujourdhui.add(id); // On l'ajoute à la liste
+				// Si l'ID n'y est pas, on l'ajoute
+				presentsAujourdhui.add(id);
 				
-				// On met à jour l'affichage seulement si c'est un nouveau présent
+				// Et on met à jour l'affichage avec la nouvelle taille de la liste
 				const el = document.getElementById('nb-presents');
 				if (el) {
-					// On recalcule le total basé sur la taille de notre liste unique
-					el.innerText = presentsAujourdhui.size;
+					// On récupère la valeur actuelle et on fait +1
+					let actuel = parseInt(el.innerText) || 0;
+					el.innerText = actuel + 1;
 				}
+			} else {
+				console.log("Membre " + id + " déjà compté comme présent aujourd'hui.");
 			}
+			
 		} else if (id.includes("KAM")) {
+			// Cas d'une nouvelle carte (formulaire d'inscription)
 			showResult({ id: id, etat: "NOUVEAU" });
 		} else {
 			alert("Inconnu : " + id);
 			startScan();
 		}
 	}
-
+	
     function showResult(m) {
         const card = document.getElementById('result-card');
         card.innerHTML = "";
