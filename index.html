@@ -329,34 +329,47 @@
 	}
 
 	async function traiterFileAttente() {
+		// Si la liste est vide, on nettoie l'affichage et on s'arrête
 		if (fileAttenteScans.length === 0) {
-			updateStatusAttente(); // Remet le statut au vert si tout est vide
+			updateStatusAttente(); 
 			return;
 		}
 
+		// On récupère le premier scan mais on ne l'enlève pas encore du localStorage
 		const scan = fileAttenteScans[0];
 		const url = `${SCRIPT_URL}?code=${encodeURIComponent(scan.code)}&surveillant=${encodeURIComponent(scan.surveillant)}`;
 
 		try {
-			// On essaie d'envoyer le premier de la liste
+			// Tentative d'envoi
 			await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
-			
-			// Succès ! On l'enlève et on passe au suivant immédiatement
+
+			// SUCCÈS : On l'enlève de la mémoire immédiatement
 			fileAttenteScans.shift();
 			localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
 			
-			// On continue la boucle pour vider toute la pile
-			traiterFileAttente(); 
+			console.log("Synchro réussie pour 1 scan.");
+
+			// On continue pour le suivant avec un mini délai de 500ms pour ne pas saturer Google
+			setTimeout(traiterFileAttente, 500);
+
 		} catch (e) {
-			console.log("Échec de synchro : Toujours hors-ligne.");
+			console.log("Échec de synchro : On garde en attente.");
 			updateStatusAttente();
 		}
 	}
 
 	function updateStatusAttente() {
 		const txt = document.getElementById('status-text');
+		const dot = document.getElementById('status-dot');
+
 		if (fileAttenteScans.length > 0) {
-			txt.innerHTML = `<b style="color:red;">☁️ ${fileAttenteScans.length} scans en attente</b>`;
+			// Affichage ALERTE
+			txt.innerHTML = `<b style="color:red;">☁️ ${fileAttenteScans.length} en attente</b>`;
+			dot.style.backgroundColor = "#ff4444"; // Rouge flash pour dire "Attention pas encore envoyé"
+		} else {
+			// Retour au CALME
+			txt.innerText = membresCache.length + " membres synchronisés";
+			dot.style.backgroundColor = "#4CAF50"; // Vert
 		}
 	}
 	// Détecteur automatique de retour d'internet
