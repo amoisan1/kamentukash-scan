@@ -103,7 +103,8 @@
     let presentsAujourdhui = new Set();
     let surveillantActif = "";
 	let fileAttenteScans = JSON.parse(localStorage.getItem('file_attente') || '[]');
-
+	let isSyncing = false; // Le verrou : empêche de lancer deux synchros en même temps
+	
     window.onload = initialiser;
 
     async function initialiser() {
@@ -329,33 +330,41 @@
 	}
 
 	async function traiterFileAttente() {
-		// Si la liste est vide, on nettoie l'affichage et on s'arrête
-		if (fileAttenteScans.length === 0) {
-			updateStatusAttente(); 
+		// Si la liste est vide OU si on est déjà en train de synchroniser : on arrête
+		if (fileAttenteScans.length === 0 || isSyncing) {
+			updateStatusAttente();
 			return;
 		}
 
-		// On récupère le premier scan mais on ne l'enlève pas encore du localStorage
-		const scan = fileAttenteScans[0];
-		const url = `${SCRIPT_URL}?code=${encodeURIComponent(scan.code)}&surveillant=${encodeURIComponent(scan.surveillant)}`;
+		isSyncing = true; // On ferme le verrou
+		console.log("Début de la synchronisation forcée...");
 
-		try {
-			// Tentative d'envoi
-			await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+		while (fileAttenteScans.length > 0) {
+			const scan = fileAttenteScans[0];
+			const url = `${SCRIPT_URL}?code=${encodeURIComponent(scan.code)}&surveillant=${encodeURIComponent(scan.surveillant)}`;
 
-			// SUCCÈS : On l'enlève de la mémoire immédiatement
-			fileAttenteScans.shift();
-			localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
-			
-			console.log("Synchro réussie pour 1 scan.");
-
-			// On continue pour le suivant avec un mini délai de 500ms pour ne pas saturer Google
-			setTimeout(traiterFileAttente, 500);
-
-		} catch (e) {
-			console.log("Échec de synchro : On garde en attente.");
-			updateStatusAttente();
+			try {
+				// On tente l'envoi
+				await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+				
+				// Succès ! On l'enlève de la liste locale
+				fileAttenteScans.shift();
+				localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
+				
+				console.log("1 scan livré. Reste : " + fileAttenteScans.length);
+				updateStatusAttente(); // On met à jour l'affichage à chaque succès
+				
+				// Petit délai pour laisser respirer le serveur
+				await new Promise(resolve => setTimeout(resolve, 300)); 
+				
+			} catch (e) {
+				console.log("Échec de connexion pendant la vidange. On arrête.");
+				break; // On sort de la boucle si internet coupe
+			}
 		}
+
+		isSyncing = false; // On rouvre le verrou à la fin
+		updateStatusAttente();
 	}
 
 	function updateStatusAttente() {
