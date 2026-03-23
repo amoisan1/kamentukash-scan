@@ -304,7 +304,14 @@
     }
 
     function stopScan() { if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('reader-container').style.display = 'none'); }
-    function closeCard() { document.getElementById('overlay').style.display = 'none'; document.getElementById('result-card').style.display = 'none'; }
+    function closeCard() { 
+		// 1. On cache les fenêtres d'alerte et le voile noir
+		document.getElementById('overlay').style.display = 'none'; 
+		document.getElementById('result-card').style.display = 'none'; 
+		
+		// 2. ON RELANCE AUTOMATIQUEMENT LE SCAN
+		startScan(); 
+	}
 	async function envoyerScan(data) {
 		const url = `${SCRIPT_URL}?code=${encodeURIComponent(data.code)}&surveillant=${encodeURIComponent(data.surveillant)}`;
 		
