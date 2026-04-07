@@ -52,6 +52,21 @@
         #result-card, #search-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 350px; padding: 25px; border-radius: 30px; background: white; z-index: 210; text-align: center; }
         #search-modal { z-index: 300; max-height: 80vh; overflow-y: auto; }
         .badge { display: inline-block; padding: 12px 24px; border-radius: 15px; color: white; font-weight: bold; margin: 15px 0; text-transform: uppercase; }
+		
+		@keyframes spin {
+			0% { transform: rotate(0deg); }
+			100% { transform: rotate(360deg); }
+		}
+		.spinner {
+			display: inline-block;
+			width: 12px;
+			height: 12px;
+			border: 2px solid rgba(255,255,255,0.3);
+			border-radius: 50%;
+			border-top-color: #fff;
+			animation: spin 1s ease-in-out infinite;
+			margin-right: 8px;
+		}
     </style>
 </head>
 <script>
@@ -311,16 +326,43 @@
     async function sauvegarderMembre(id) {
         const p = document.getElementById('ins-prenom').value.trim();
         const n = document.getElementById('ins-nom').value.trim();
-        if(!p || !n) return alert("Champs vides");
+        const card = document.getElementById('result-card');
+        
+        if(!p || !n) return alert("Veuillez remplir le nom et le prénom");
+
+        // --- DÉBUT DU CHARGEMENT ---
         const btn = document.querySelector('.btn-save');
-        btn.innerText = "Envoi..."; btn.disabled = true;
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.style.opacity = "0.7";
+        btn.innerHTML = '<span class="spinner"></span> ENREGISTREMENT...';
+
         try {
             const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+            
+            // On lance l'appel
             await fetch(PROXY + encodeURIComponent(url));
+
+            // Mise à jour locale du cache pour que la personne soit reconnue immédiatement
             membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
             localStorage.setItem('membres_cache', JSON.stringify(membresCache));
-            card.innerHTML = `<div style="padding:20px; color:green; font-weight:bold;">✅ Enregistré !</div><button class="btn-next" onclick="closeCard()">CONTINUER</button>`;
-        } catch (e) { alert("Terminé !"); closeCard(); }
+
+            // Message de succès
+            card.innerHTML = `
+                <div style="padding:20px;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">✅</div>
+                    <h3 style="color:var(--success); margin:0;">ENREGISTRÉ !</h3>
+                    <p>${p} ${n} est maintenant dans la base.</p>
+                    <button class="btn-next" onclick="closeCard()">CONTINUER</button>
+                </div>`;
+            
+        } catch (e) {
+            // En cas d'erreur réseau, on informe l'utilisateur
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.innerText = originalText;
+            alert("Erreur de connexion. Réessayez.");
+        }
     }
 
     function stopScan() { if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('reader-container').style.display = 'none'); }
