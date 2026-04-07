@@ -243,24 +243,24 @@
     }
 
     function validerMembre(m) {
-		showResult(m);
-		
-		// On crée l'objet du scan
-		const scanData = {
-			code: m.id,
-			surveillant: surveillantActif,
-			timestamp: new Date().toISOString()
-		};
+        // On affiche d'abord le résultat visuel
+        showResult(m);
+        
+        const scanData = {
+            code: m.id,
+            surveillant: surveillantActif,
+            timestamp: new Date().toISOString()
+        };
 
-		// On tente l'envoi intelligent
-		envoyerScan(scanData);
-		
-		// Mise à jour du compteur local (ça, ça marche toujours)
-		if (!presentsAujourdhui.has(m.id)) {
-			presentsAujourdhui.add(m.id);
-			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
-		}
-	}
+        // On envoie au serveur
+        envoyerScan(scanData);
+        
+        // On n'ajoute au compteur local QUE si ce n'est pas déjà dans notre Set local
+        if (!presentsAujourdhui.has(m.id)) {
+            presentsAujourdhui.add(m.id);
+            document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+        }
+    }
 
     function ouvrirRecherche() {
         document.getElementById('search-modal-overlay').style.display = 'block';
