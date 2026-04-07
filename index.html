@@ -54,6 +54,15 @@
         .badge { display: inline-block; padding: 12px 24px; border-radius: 15px; color: white; font-weight: bold; margin: 15px 0; text-transform: uppercase; }
     </style>
 </head>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('Service Worker actif !'))
+        .catch(err => console.log('Erreur SW:', err));
+    });
+  }
+</script>
 <body>
 
 <audio id="audio-bip" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
