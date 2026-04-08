@@ -266,18 +266,24 @@
 		try {
 			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
 			
-			// On attend la réponse
-			const response = await fetch(PROXY + encodeURIComponent(url));
-			console.log("Réponse reçue du serveur");
+			await fetch(PROXY + encodeURIComponent(url));
 
-			// Mise à jour cache
+			// 1. Mise à jour du cache des membres (pour la recherche)
 			membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
 			localStorage.setItem('membres_cache', JSON.stringify(membresCache));
+
+			// --- CORRECTIF DU BUG : MISE À JOUR DU COMPTEUR ---
+			if (!presentsAujourdhui.has(id)) {
+				presentsAujourdhui.add(id); // On l'ajoute aux présents du jour
+				document.getElementById('nb-presents').innerText = presentsAujourdhui.size; // On met à jour l'écran
+			}
+			// ------------------------------------------------
 
 			// Affichage succès
 			card.innerHTML = `<div style="padding:20px;"><div style="font-size:40px;">✅</div><h3>ENREGISTRÉ !</h3><button class="btn-next" onclick="closeCard()">CONTINUER</button></div>`;
 			
 		} catch (e) {
+ 
 			console.error("Erreur fetch:", e);
 			if (btn) {
 				btn.disabled = false;
