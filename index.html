@@ -145,21 +145,29 @@
     }
 
     async function syncMembres() {
-        try {
-            const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
-            const data = await resp.json();
-            if (data && data.membres) {
-                membresCache = data.membres;
-                localStorage.setItem('membres_cache', JSON.stringify(data.membres));
-                presentsAujourdhui = new Set();
-                const nb = data.totalPresents || 0;
-                for(let i=0; i<nb; i++) presentsAujourdhui.add("PRE_"+i); 
-                document.getElementById('nb-presents').innerText = nb;
-                document.getElementById('status-text').innerText = membresCache.length + " membres sync";
-                document.getElementById('status-dot').classList.add('online');
-            }
-        } catch (e) { document.getElementById('status-text').innerText = "Mode Hors-ligne"; }
-    }
+		try {
+			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
+			const data = await resp.json();
+			
+			if (data && data.membres) {
+				// 1. On garde la mise à jour de la liste des membres
+				membresCache = data.membres;
+				localStorage.setItem('membres_cache', JSON.stringify(data.membres));
+
+				// 2. CORRECTION DU COMPTEUR : 
+				// On remplit le Set avec les vrais IDs reçus du serveur (ex: ["KAM001", "KAM005"])
+				// Au lieu de créer des "PRE_0", "PRE_1"...
+				presentsAujourdhui = new Set(data.presentsIds || []);
+
+				// 3. Mise à jour de l'affichage
+				document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+				document.getElementById('status-text').innerText = membresCache.length + " membres sync";
+				document.getElementById('status-dot').classList.add('online');
+			}
+		} catch (e) { 
+			document.getElementById('status-text').innerText = "Mode Hors-ligne"; 
+		}
+	}
 
     function validerSurveillant() {
         const val = document.getElementById('select-surveillant').value;
