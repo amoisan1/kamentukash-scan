@@ -204,10 +204,10 @@
         if (m.etat === "NOUVEAU") {
             card.style.borderTop = "10px solid var(--primary)";
             card.innerHTML = `<h2>CARTE VIERGE</h2><p>ID: ${m.id}</p>
-                <input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
-                <input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
-                <button class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
-                <button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
+			<input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
+			<input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
+			<button id="btn-save-action" class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
+			<button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
         } else {
             let color = "var(--error)";
             const et = (m.etat || "").toLowerCase();
@@ -221,27 +221,45 @@
     }
 
     async function sauvegarderMembre(id) {
-        const p = document.getElementById('ins-prenom').value.trim();
-        const n = document.getElementById('ins-nom').value.trim();
-        const card = document.getElementById('result-card');
-        if(!p || !n) return alert("Champs vides");
+		const p = document.getElementById('ins-prenom').value.trim();
+		const n = document.getElementById('ins-nom').value.trim();
+		const btn = document.getElementById('btn-save-action'); // On cible l'ID précis
+		const card = document.getElementById('result-card');
 
-        const btn = card.querySelector('.btn-save');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> ENREGISTREMENT...';
+		if(!p || !n) return alert("Champs vides");
 
-        try {
-            const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-            await fetch(PROXY + encodeURIComponent(url));
-            membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
-            localStorage.setItem('membres_cache', JSON.stringify(membresCache));
-            card.innerHTML = `<div style="padding:20px;"><div style="font-size:40px;">✅</div><h3>ENREGISTRÉ !</h3><button class="btn-next" onclick="closeCard()">CONTINUER</button></div>`;
-        } catch (e) {
-            btn.disabled = false;
-            btn.innerText = "RÉESSAYER";
-            alert("Erreur de connexion.");
-        }
-    }
+		// --- FORCE L'ANIMATION ICI ---
+		if (btn) {
+			btn.disabled = true;
+			btn.style.backgroundColor = "#6c757d"; // On force le gris
+			btn.innerHTML = '<span class="spinner"></span> PATIENTEZ...';
+			console.log("Animation lancée..."); 
+		}
+
+		try {
+			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+			
+			// On attend la réponse
+			const response = await fetch(PROXY + encodeURIComponent(url));
+			console.log("Réponse reçue du serveur");
+
+			// Mise à jour cache
+			membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
+			localStorage.setItem('membres_cache', JSON.stringify(membresCache));
+
+			// Affichage succès
+			card.innerHTML = `<div style="padding:20px;"><div style="font-size:40px;">✅</div><h3>ENREGISTRÉ !</h3><button class="btn-next" onclick="closeCard()">CONTINUER</button></div>`;
+			
+		} catch (e) {
+			console.error("Erreur fetch:", e);
+			if (btn) {
+				btn.disabled = false;
+				btn.style.backgroundColor = "var(--success)";
+				btn.innerText = "RÉESSAYER";
+			}
+			alert("Erreur de connexion.");
+		}
+	}
 
     function ouvrirRecherche() {
         document.getElementById('search-modal-overlay').style.display = 'block';
