@@ -65,6 +65,24 @@
 		#info-surveillant:active {
 			transform: scale(0.95);
 		}
+		/* Nouveau style pour le compteur */
+		.compteur-conteneur {
+			background: white;
+			padding: 15px 30px;
+			border-radius: 20px;
+			font-size: 1.1rem; /* Plus gros */
+			color: #333;
+			font-weight: 700;
+			box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+			display: inline-block;
+			margin-top: 10px; /* Espace avec la recherche */
+			border: 1px solid rgba(0,0,0,0.05);
+		}
+
+		#nb-presents {
+			color: var(--primary); /* Met le chiffre en bleu */
+			font-size: 1.3rem;
+		}
 	</style>
 </head>
 <body>
@@ -89,17 +107,17 @@
 <div id="home-screen">
     <div id="info-surveillant" onclick="resetSurveillant()" style="background: white; padding: 10px 25px; border-radius: 50px; color: var(--primary); font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.05); cursor: pointer;"></div>
     
-    <div style="background: #e9ecef; padding: 10px 20px; border-radius: 15px; font-size: 0.9rem; color: #495057; font-weight: bold;">
-        👥 Présents : <span id="nb-presents">0</span>
-    </div>
-    
     <button class="btn-scan" onclick="startScan()">📷<br><br>SCANNER</button>
 
-    <div id="search-trigger" onclick="ouvrirRecherche()">
+    <div id="search-trigger" onclick="ouvrirRecherche()" style="margin-top: 15px; color: var(--primary); font-weight: bold; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 10px;">
         <span>🔍</span> RECHERCHE MANUELLE
     </div>
 
+    <div style="margin-top: 5px; background: white; padding: 12px 25px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eee; display: inline-block;">
+        <span style="color: #666; font-size: 0.9rem; font-weight: 600;">PRÉSENCES :</span>
+        <span id="nb-presents" style="color: var(--primary); font-size: 1.4rem; font-weight: 800; margin-left: 5px;">0</span>
     </div>
+</div>
 
 <div id="reader-container">
     <div id="reader" style="width: 100%; height: 100%;"></div>
