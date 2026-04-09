@@ -83,6 +83,14 @@
 			color: var(--primary); /* Met le chiffre en bleu */
 			font-size: 1.3rem;
 		}
+		/* Style pour l'image décorative en bas */
+				.illustration-bas {
+			width: 100%;
+			max-width: 400px;
+			height: auto; /* Garde les proportions */
+			aspect-ratio: 16 / 9; /* Optionnel, selon l'image choisie */
+			content-visibility: auto; /* Optimise le rendu par le navigateur */
+		}
 	</style>
 </head>
 <body>
@@ -400,5 +408,6 @@
 
     window.addEventListener('online', traiterFileAttente);
 </script>
+<img src="https://github.com/amoisan1/kamentukash-scan/blob/main/image-bas.webp" class="illustration-bas" alt="Décoration Archer">
 </body>
 </html>
