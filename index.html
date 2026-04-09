@@ -85,11 +85,15 @@
 		}
 		/* Style pour l'image décorative en bas */
 				.illustration-bas {
+			position: fixed;
+			bottom: 0;
+			left: 50%;
+			transform: translateX(-50%);
 			width: 100%;
 			max-width: 400px;
-			height: auto; /* Garde les proportions */
-			aspect-ratio: 16 / 9; /* Optionnel, selon l'image choisie */
-			content-visibility: auto; /* Optimise le rendu par le navigateur */
+			opacity: 0.05; /* Ajuste selon tes goûts */
+			z-index: -1;
+			pointer-events: none;
 		}
 	</style>
 </head>
