@@ -338,7 +338,21 @@
         });
     }
 
-    function stopScan() { if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('reader-container').style.display = 'none'); }
+    function stopScan() {
+		if (html5QrCode) {
+			html5QrCode.stop()
+				.then(() => {
+					document.getElementById('reader-container').style.display = 'none';
+				})
+				.catch(err => {
+					console.warn("Erreur d'arrêt :", err);
+					// On cache quand même le conteneur en cas d'erreur
+					document.getElementById('reader-container').style.display = 'none';
+				});
+		} else {
+			document.getElementById('reader-container').style.display = 'none';
+		}
+	}
     function closeCard() { document.getElementById('overlay').style.display = 'none'; document.getElementById('result-card').style.display = 'none'; startScan(); }
 
     async function envoyerScan(data) {
