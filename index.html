@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Kamentukash Pro - Final</title>
 
     <link rel="manifest" href="manifest.json">
@@ -95,10 +95,36 @@
 			z-index: -1;
 			pointer-events: none;
 		}
+		/* Écran de blocage paysage */
+		#landscape-lock {
+			display: none;
+			position: fixed;
+			top: 0; left: 0;
+			width: 100%; height: 100%;
+			background: #0056b3; /* Ta couleur primaire */
+			color: white;
+			z-index: 10000;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 20px;
+		}
+
+/* S'affiche seulement si la largeur est plus grande que la hauteur */
+@media (orientation: landscape) {
+    #landscape-lock {
+        display: flex;
+    }
+    body { overflow: hidden; } /* Empêche le scroll derrière */
+}
 	</style>
 </head>
 <body>
-
+<div id="landscape-lock">
+    <div style="font-size: 50px; margin-bottom: 20px;">🔄</div>
+    <h2 style="margin: 0;">Mode Portrait Requis</h2>
+    <p>Merci de redresser votre appareil pour utiliser KScan.</p>
+</div>
 <audio id="audio-bip" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
 
 <div id="status-bar">
@@ -354,7 +380,7 @@
     }
 
     function stopScan() {
-		if (html5QrCode) {
+		if (html5QrCode && html5QrCode.isScanning)
 			html5QrCode.stop()
 				.then(() => {
 					document.getElementById('reader-container').style.display = 'none';
