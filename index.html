@@ -181,6 +181,7 @@
     const PROXY = "https://api.codetabs.com/v1/proxy?quest=";
 
     let html5QrCode, membresCache = [], presentsAujourdhui = new Set(), surveillantActif = "";
+	let modeRechercheManuelle = false;
     let fileAttenteScans = JSON.parse(localStorage.getItem('file_attente') || '[]'), isSyncing = false;
 
     if ('serviceWorker' in navigator) {
@@ -354,6 +355,7 @@
 	}
 
     function ouvrirRecherche() {
+		modeRechercheManuelle = true; // On active le flag
         document.getElementById('search-modal-overlay').style.display = 'block';
         document.getElementById('search-modal').style.display = 'block';
         document.getElementById('input-recherche').focus();
@@ -374,13 +376,13 @@
             const div = document.createElement('div');
             div.className = 'item-recherche';
             div.innerHTML = `<strong>${m.prenom} ${m.nom}</strong><br><small>${m.id} | ${m.etat}</small>`;
-            div.onclick = () => { fermerRecherche(); validerMembre(m); };
+            div.onclick = () => { stopScan();fermerRecherche(); validerMembre(m); };
             container.appendChild(div);
         });
     }
 
     function stopScan() {
-		if (html5QrCode && html5QrCode.isScanning)
+		if (html5QrCode && html5QrCode.isScanning){
 			html5QrCode.stop()
 				.then(() => {
 					document.getElementById('reader-container').style.display = 'none';
@@ -394,7 +396,14 @@
 			document.getElementById('reader-container').style.display = 'none';
 		}
 	}
-    function closeCard() { document.getElementById('overlay').style.display = 'none'; document.getElementById('result-card').style.display = 'none'; startScan(); }
+    function closeCard() { 
+	document.getElementById('overlay').style.display = 'none'; 
+	document.getElementById('result-card').style.display = 'none'; 
+	if (!modeRechercheManuelle) {
+        startScan();
+		}
+		modeRechercheManuelle = false;
+	}
 
     async function envoyerScan(data) {
         const url = `${SCRIPT_URL}?code=${encodeURIComponent(data.code)}&surveillant=${encodeURIComponent(data.surveillant)}`;
