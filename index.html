@@ -277,9 +277,10 @@
     }
 
     function validerMembre(m) {
+		const dejaPresent = presentsAujourdhui.has(m.id);
         showResult(m);
         envoyerScan({ code: m.id, surveillant: surveillantActif, timestamp: new Date().toISOString() });
-        if (!presentsAujourdhui.has(m.id)) {
+        if (!dejaPresent) {
             presentsAujourdhui.add(m.id);
             document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
         }
@@ -301,6 +302,7 @@
             if (et === "actif") color = "var(--success)";
             if (et === "non-confirmé") color = "var(--warning)";
             card.style.borderTop = "10px solid " + color;
+			let mentionDoublon = dejaPresent ? `<div style="color: #e67e22; font-weight: bold; margin-bottom: 10px; font-size: 1.2rem;">⚠️ DÉJÀ SCANNÉ</div>` : "";
             card.innerHTML = `<h2>${m.prenom} ${m.nom}</h2><div class="badge" style="background:${color}">${(m.etat || "INCONNU").toUpperCase()}</div><p style="color:#888;">${m.id}</p><button class="btn-next" onclick="closeCard()">SUIVANT</button>`;
         }
         document.getElementById('overlay').style.display = "block";
