@@ -176,9 +176,14 @@
          class="illustration-bas" 
          alt="Décoration Archer"
          loading="lazy">
+<div id="version-display" style="position: fixed; bottom: 5px; right: 10px; font-size: 0.7rem; color: #999; z-index: 1000; font-family: monospace;">
+    Chargement version...
+</div>
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQOsi7pSMMQRN_Tyw24vHFHcmlCI6HH_6fz0N8kDw81jL_sq1AH0xXBrEbj-9shFte/exec";
     const PROXY = "https://api.codetabs.com/v1/proxy?quest=";
+	const GITHUB_USER = "amoisan1";
+	const GITHUB_REPO = "kamentukash-scan";
 
     let html5QrCode, membresCache = [], presentsAujourdhui = new Set(), surveillantActif = "";
 	let modeRechercheManuelle = false;
@@ -191,8 +196,37 @@
     }
 
     window.onload = initialiser;
+	async function fetchGithubVersion() {
+		try {
+			// On interroge l'API GitHub pour avoir le dernier commit de la branche principale
+			const response = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/commits/main`);
+			const data = await response.json();
+			
+			if (data && data.commit) {
+				// On récupère la date du commit (ex: 2023-10-27T14:30:00Z)
+				const commitDate = new Date(data.commit.committer.date);
+				
+				// Formatage lisible : JJ/MM HH:mm
+				const versionStr = commitDate.toLocaleDateString('fr-FR', {
+					day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+				});
 
+				document.getElementById('version-display').innerText = "Build: " + versionStr;
+				
+				// Petit bonus : comparer avec la version précédente pour alerter d'une mise à jour
+				const lastVersion = localStorage.getItem('last_github_build');
+				if (lastVersion && lastVersion !== versionStr) {
+					console.log("Nouvelle version détectée !");
+					// On peut forcer un rafraîchissement du cache ici si on veut
+				}
+				localStorage.setItem('last_github_build', versionStr);
+			}
+		} catch (e) {
+			document.getElementById('version-display').innerText = "v. hors-ligne";
+		}
+	}
     async function initialiser() {
+		fetchGithubVersion();
         const localData = localStorage.getItem('membres_cache');
         if (localData) {
             membresCache = JSON.parse(localData);
@@ -277,33 +311,50 @@
     }
 
     function validerMembre(m) {
-		const dejaPresent = presentsAujourdhui.has(m.id);
-        showResult(m);
+        // On vérifie si l'ID est déjà dans le Set des présents
+        const estUnDoublon = presentsAujourdhui.has(m.id);
+        
+        // CRUCIAL : On passe "estUnDoublon" à la fonction showResult
+        showResult(m, estUnDoublon);
+        
+        // On envoie le scan (pour l'historique sur Google Sheets)
         envoyerScan({ code: m.id, surveillant: surveillantActif, timestamp: new Date().toISOString() });
-        if (!dejaPresent) {
+        
+        // Si c'est un nouveau scan pour aujourd'hui, on l'ajoute au compteur
+        if (!estUnDoublon) {
             presentsAujourdhui.add(m.id);
             document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
         }
     }
 
-    function showResult(m) {
+    function showResult(m, dejaPresent = false) {
         const card = document.getElementById('result-card');
         card.innerHTML = "";
+        
         if (m.etat === "NOUVEAU") {
             card.style.borderTop = "10px solid var(--primary)";
             card.innerHTML = `<h2>CARTE VIERGE</h2><p>ID: ${m.id}</p>
-			<input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
-			<input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
-			<button id="btn-save-action" class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
-			<button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
+            <input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
+            <input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
+            <button id="btn-save-action" class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
+            <button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
         } else {
             let color = "var(--error)";
             const et = (m.etat || "").toLowerCase();
             if (et === "actif") color = "var(--success)";
             if (et === "non-confirmé") color = "var(--warning)";
+            
             card.style.borderTop = "10px solid " + color;
-			let mentionDoublon = dejaPresent ? `<div style="color: #e67e22; font-weight: bold; margin-bottom: 10px; font-size: 1.2rem;">⚠️ DÉJÀ SCANNÉ</div>` : "";
-            card.innerHTML = `<h2>${m.prenom} ${m.nom}</h2><div class="badge" style="background:${color}">${(m.etat || "INCONNU").toUpperCase()}</div><p style="color:#888;">${m.id}</p><button class="btn-next" onclick="closeCard()">SUIVANT</button>`;
+            
+            // On prépare la mention si c'est un doublon
+            let mentionDoublon = dejaPresent ? `<div style="color: #e67e22; font-weight: bold; margin-bottom: 10px; font-size: 1.2rem;">⚠️ DÉJÀ SCANNÉ</div>` : "";
+            
+            card.innerHTML = `
+                ${mentionDoublon}
+                <h2>${m.prenom} ${m.nom}</h2>
+                <div class="badge" style="background:${color}">${(m.etat || "INCONNU").toUpperCase()}</div>
+                <p style="color:#888;">${m.id}</p>
+                <button class="btn-next" onclick="closeCard()">SUIVANT</button>`;
         }
         document.getElementById('overlay').style.display = "block";
         card.style.display = "block";
