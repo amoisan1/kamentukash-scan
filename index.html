@@ -151,10 +151,10 @@
         <span>🔍</span> RECHERCHE MANUELLE
     </div>
 
-    <div style="margin-top: 30px; background: white; padding: 12px 25px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eee; display: inline-block;">
-        <span style="color: #666; font-size: 0.9rem; font-weight: 600;">PRÉSENCES :</span>
-        <span id="nb-presents" style="color: var(--primary); font-size: 1.4rem; font-weight: 800; margin-left: 5px;">0</span>
-    </div>
+    <div style="margin-top: 30px; background: white; padding: 12px 25px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eee; display: inline-block; cursor: pointer;" onclick="afficherListePresents()">
+    <span style="color: #666; font-size: 0.9rem; font-weight: 600;">PRÉSENCES :</span>
+    <span id="nb-presents" style="color: var(--primary); font-size: 1.4rem; font-weight: 800; margin-left: 5px;">0</span>
+	</div>
 </div>
 
 <div id="reader-container">
@@ -178,6 +178,13 @@
          loading="lazy">
 <div id="version-display" style="position: fixed; bottom: 5px; right: 10px; font-size: 0.7rem; color: #999; z-index: 1000; font-family: monospace;">
     Chargement version...
+</div>
+<div id="presents-modal-overlay" class="overlay" onclick="fermerListePresents()"></div>
+<div id="presents-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 350px; padding: 25px; border-radius: 30px; background: white; z-index: 300; text-align: center;">
+    <h3>Présents aujourd'hui</h3>
+    <div id="liste-presents-details" style="max-height: 300px; overflow-y: auto; margin: 15px 0; border: 1px solid #eee; border-radius: 10px; text-align: left;">
+        </div>
+    <button class="btn-next" onclick="fermerListePresents()">FERMER</button>
 </div>
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQOsi7pSMMQRN_Tyw24vHFHcmlCI6HH_6fz0N8kDw81jL_sq1AH0xXBrEbj-9shFte/exec";
@@ -224,6 +231,38 @@
 		} catch (e) {
 			document.getElementById('version-display').innerText = "v. hors-ligne";
 		}
+	}
+	function afficherListePresents() {
+		const container = document.getElementById('liste-presents-details');
+		container.innerHTML = '';
+
+		if (presentsAujourdhui.size === 0) {
+			container.innerHTML = '<p style="padding:15px; color:#999;">Aucun présent pour le moment.</p>';
+		} else {
+			// On boucle sur les IDs présents dans le Set
+			presentsAujourdhui.forEach(id => {
+				// On cherche les détails du membre dans le cache
+				const m = membresCache.find(x => x.id === id);
+				const div = document.createElement('div');
+				div.style.padding = "10px 15px";
+				div.style.borderBottom = "1px solid #f5f5f5";
+				
+				if (m) {
+					div.innerHTML = `<strong>${m.prenom} ${m.nom}</strong> <br><small style="color:#666;">${m.id}</small>`;
+				} else {
+					div.innerHTML = `<strong>Membre inconnu</strong> <br><small style="color:#666;">${id}</small>`;
+				}
+				container.appendChild(div);
+			});
+		}
+
+		document.getElementById('presents-modal-overlay').style.display = 'block';
+		document.getElementById('presents-modal').style.display = 'block';
+	}
+
+	function fermerListePresents() {
+		document.getElementById('presents-modal-overlay').style.display = 'none';
+		document.getElementById('presents-modal').style.display = 'none';
 	}
     async function initialiser() {
 		fetchGithubVersion();
