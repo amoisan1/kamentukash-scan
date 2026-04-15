@@ -292,9 +292,12 @@
 		document.getElementById('presents-modal').style.display = 'block';
 	}
 	function demanderSuppression(id, nomComplet) {
+		// 1. On cache d'abord la liste des présents pour libérer l'écran
+		fermerListePresents();
+
 		const card = document.getElementById('result-card');
 		card.innerHTML = "";
-		card.style.borderTop = "10px solid var(--error)"; // Rouge pour danger
+		card.style.borderTop = "10px solid var(--error)"; // Bandeau rouge
 		
 		card.innerHTML = `
 			<div style="font-size:40px; margin-bottom:10px;">🗑️</div>
@@ -308,6 +311,7 @@
 					onclick="closeCard()">ANNULER</button>
 		`;
 		
+		// 2. On affiche l'overlay et la carte de confirmation
 		document.getElementById('overlay').style.display = "block";
 		card.style.display = "block";
 	}
