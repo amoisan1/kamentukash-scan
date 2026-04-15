@@ -378,14 +378,11 @@
         else { alert("Code inconnu"); startScan(); }
     }
 	function confirmermembreManuel(m) {
-		const confirmation = confirm(`Voulez-vous enregistrer la présence de :\n\n${m.prenom} ${m.nom} (${m.id}) ?`);
+		// On ferme la recherche pour voir la carte
+		fermerRecherche(); 
 		
-		if (confirmation) {
-			stopScan(); 
-			fermerRecherche(); 
-			validerMembre(m);
-		}
-		// Si l'utilisateur clique sur "Annuler", rien ne se passe et la recherche reste ouverte
+		// On appelle showResult avec un 3ème argument "true" pour dire que c'est une confirmation
+		showResult(m, presentsAujourdhui.has(m.id), true);
 	}
     function validerMembre(m) {
 		// 1. On vérifie si l'ID est déjà dans le Set local pour l'affichage
@@ -409,39 +406,52 @@
 		}
 	}
 
-    function showResult(m, dejaPresent = false) {
-        const card = document.getElementById('result-card');
-        card.innerHTML = "";
-        
-        if (m.etat === "NOUVEAU") {
-            card.style.borderTop = "10px solid var(--primary)";
-            card.innerHTML = `<h2>CARTE VIERGE</h2><p>ID: ${m.id}</p>
-            <input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
-            <input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
-            <button id="btn-save-action" class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
-            <button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
-        } else {
-            let color = "var(--error)";
-            const et = (m.etat || "").toLowerCase();
-            if (et === "actif") color = "var(--success)";
-            if (et === "non-confirmé") color = "var(--warning)";
-            
-            card.style.borderTop = "10px solid " + color;
-            
-            // On prépare la mention si c'est un doublon
-            let mentionDoublon = dejaPresent ? `<div style="color: #e67e22; font-weight: bold; margin-bottom: 10px; font-size: 1.2rem;">⚠️ DÉJÀ SCANNÉ</div>` : "";
-            
-            card.innerHTML = `
-                ${mentionDoublon}
-                <h2>${m.prenom} ${m.nom}</h2>
-                <div class="badge" style="background:${color}">${(m.etat || "INCONNU").toUpperCase()}</div>
-                <p style="color:#888;">${m.id}</p>
-                <button class="btn-next" onclick="closeCard()">SUIVANT</button>`;
-        }
-        document.getElementById('overlay').style.display = "block";
-        card.style.display = "block";
-    }
+    function showResult(m, dejaPresent = false, demandeConfirmation = false) {
+		const card = document.getElementById('result-card');
+		card.innerHTML = "";
+		
+		if (m.etat === "NOUVEAU") {
+			// ... (ton code pour carte vierge reste identique)
+			card.style.borderTop = "10px solid var(--primary)";
+			card.innerHTML = `<h2>CARTE VIERGE</h2><p>ID: ${m.id}</p>
+			<input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
+			<input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
+			<button id="btn-save-action" class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
+			<button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
+		} else {
+			let color = "var(--error)";
+			const et = (m.etat || "").toLowerCase();
+			if (et === "actif") color = "var(--success)";
+			if (et === "non-confirmé") color = "var(--warning)";
+			
+			card.style.borderTop = "10px solid " + color;
+			let mentionDoublon = dejaPresent ? `<div style="color: #e67e22; font-weight: bold; margin-bottom: 10px; font-size: 1.2rem;">⚠️ DÉJÀ SCANNÉ</div>` : "";
+			
+			// Logique du bouton : soit "CONFIRMER" (manuel), soit "SUIVANT" (scan auto)
+			let boutonAction = demandeConfirmation 
+				? `<button class="btn-save" style="background:var(--success);" onclick="validerMembreDepuisBouton('${m.id}')">CONFIRMER LA PRÉSENCE</button>
+				   <button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`
+				: `<button class="btn-next" onclick="closeCard()">SUIVANT</button>`;
 
+			card.innerHTML = `
+				${mentionDoublon}
+				<h2 style="margin-bottom:5px;">${m.prenom} ${m.nom}</h2>
+				<div class="badge" style="background:${color}">${(m.etat || "INCONNU").toUpperCase()}</div>
+				<p style="color:#888; margin-bottom:20px;">${m.id}</p>
+				${boutonAction}`;
+		}
+		document.getElementById('overlay').style.display = "block";
+		card.style.display = "block";
+	}
+	function validerMembreDepuisBouton(id) {
+		const m = membresCache.find(x => x.id === id);
+		if (m) {
+			validerMembre(m); // Appelle ta fonction qui envoie vers Google Sheets
+			// On change le bouton pour montrer que c'est fait
+			const card = document.getElementById('result-card');
+			card.innerHTML = `<div style="padding:20px;"><div style="font-size:40px;">✅</div><h3>PRÉSENCE NOTÉE</h3><button class="btn-next" onclick="closeCard()">CONTINUER</button></div>`;
+		}
+	}
     async function sauvegarderMembre(id) {
 		const p = document.getElementById('ins-prenom').value.trim();
 		const n = document.getElementById('ins-nom').value.trim();
