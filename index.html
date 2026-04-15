@@ -379,21 +379,26 @@
     }
 
     function validerMembre(m) {
-        // On vérifie si l'ID est déjà dans le Set des présents
-        const estUnDoublon = presentsAujourdhui.has(m.id);
-        
-        // CRUCIAL : On passe "estUnDoublon" à la fonction showResult
-        showResult(m, estUnDoublon);
-        
-        // On envoie le scan (pour l'historique sur Google Sheets)
-        envoyerScan({ code: m.id, surveillant: surveillantActif, timestamp: new Date().toISOString() });
-        
-        // Si c'est un nouveau scan pour aujourd'hui, on l'ajoute au compteur
-        if (!estUnDoublon) {
-            presentsAujourdhui.add(m.id);
-            document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
-        }
-    }
+		// 1. On vérifie si l'ID est déjà dans le Set local pour l'affichage
+		const estUnDoublon = presentsAujourdhui.has(m.id);
+		
+		// 2. On affiche le résultat à l'utilisateur
+		showResult(m, estUnDoublon);
+		
+		// 3. CORRECTIF CRUCIAL : On envoie TOUJOURS le scan à Google Sheets
+		// même si c'est un "doublon" local, pour être sûr que la Sheet soit à jour
+		envoyerScan({ 
+			code: m.id, 
+			surveillant: surveillantActif, 
+			timestamp: new Date().toISOString() 
+		});
+		
+		// 4. Mise à jour du compteur local
+		if (!estUnDoublon) {
+			presentsAujourdhui.add(m.id);
+			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+		}
+	}
 
     function showResult(m, dejaPresent = false) {
         const card = document.getElementById('result-card');
