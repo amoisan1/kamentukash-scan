@@ -292,37 +292,52 @@
 		document.getElementById('presents-modal').style.display = 'block';
 	}
 	function demanderSuppression(id, nomComplet) {
-			const confirmation = confirm(`Voulez-vous vraiment retirer ${nomComplet} de la liste des présents ?`);
+		const card = document.getElementById('result-card');
+		card.innerHTML = "";
+		card.style.borderTop = "10px solid var(--error)"; // Rouge pour danger
+		
+		card.innerHTML = `
+			<div style="font-size:40px; margin-bottom:10px;">🗑️</div>
+			<h2 style="margin-bottom:5px;">Retirer ?</h2>
+			<p style="margin-bottom:20px;">Voulez-vous vraiment enlever <strong>${nomComplet}</strong> de la liste ?</p>
 			
-			if (confirmation) {
-				retirerPresence(id);
-			}
-		}
+			<button class="btn-save" style="background:var(--error); margin-bottom:10px;" 
+					onclick="retirerPresence('${id}')">OUI, EFFACER</button>
+					
+			<button class="btn-next" style="background:#ccc;" 
+					onclick="closeCard()">ANNULER</button>
+		`;
+		
+		document.getElementById('overlay').style.display = "block";
+		card.style.display = "block";
+	}
 
 	async function retirerPresence(id) {
-			// 1. Retrait du Set local
-			if (presentsAujourdhui.has(id)) {
-				presentsAujourdhui.delete(id);
-				
-				// 2. Mise à jour immédiate de l'affichage
-				document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
-				
-				// 3. Fermer et rouvrir la liste pour rafraîchir l'affichage
-				afficherListePresents(); 
+		if (presentsAujourdhui.has(id)) {
+			// 1. Visuel immédiat
+			const card = document.getElementById('result-card');
+			card.innerHTML = `<div style="padding:20px;"><span class="spinner" style="border-top-color:var(--error)"></span><br><br>Suppression...</div>`;
 
-				// 4. Information au serveur (Google Sheets)
-				// Note: On ajoute une action "supprimer" à ton script Google
-				const url = `${SCRIPT_URL}?action=supprimer&code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-				
-				try {
-					await fetch(PROXY + encodeURIComponent(url));
-					console.log("Suppression synchronisée");
-				} catch (e) {
-					console.error("Erreur de synchro suppression, sera effectif localement");
-					// Optionnel : tu peux gérer une file d'attente pour les suppressions aussi
+			// 2. Retrait local
+			presentsAujourdhui.delete(id);
+			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+			
+			// 3. Appel serveur
+			const url = `${SCRIPT_URL}?action=supprimer&code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+			
+			try {
+				await fetch(PROXY + encodeURIComponent(url));
+				// Succès : on ferme tout et on rafraîchit la liste
+				closeCard();
+				if (document.getElementById('presents-modal').style.display === 'block') {
+					afficherListePresents(); 
 				}
+			} catch (e) {
+				alert("Erreur de connexion, mais retiré localement.");
+				closeCard();
 			}
 		}
+	}
 	function fermerListePresents() {
 		document.getElementById('presents-modal-overlay').style.display = 'none';
 		document.getElementById('presents-modal').style.display = 'none';
