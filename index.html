@@ -377,7 +377,16 @@
         else if (id.includes("KAM")) { showResult({ id: id, etat: "NOUVEAU" }); } 
         else { alert("Code inconnu"); startScan(); }
     }
-
+	function confirmermembreManuel(m) {
+		const confirmation = confirm(`Voulez-vous enregistrer la présence de :\n\n${m.prenom} ${m.nom} (${m.id}) ?`);
+		
+		if (confirmation) {
+			stopScan(); 
+			fermerRecherche(); 
+			validerMembre(m);
+		}
+		// Si l'utilisateur clique sur "Annuler", rien ne se passe et la recherche reste ouverte
+	}
     function validerMembre(m) {
 		// 1. On vérifie si l'ID est déjà dans le Set local pour l'affichage
 		const estUnDoublon = presentsAujourdhui.has(m.id);
@@ -527,7 +536,7 @@
 			div.className = 'item-recherche';
 			// Petit plus : on affiche "Prénom Nom" pour rester cohérent avec le tri
 			div.innerHTML = `<strong>${m.prenom} ${m.nom}</strong><br><small>${m.id} | ${m.etat}</small>`;
-			div.onclick = () => { stopScan(); fermerRecherche(); validerMembre(m); };
+			div.onclick = () => { confirmermembreManuel(m);
 			container.appendChild(div);
 		});
 	}
