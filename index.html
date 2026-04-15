@@ -233,25 +233,54 @@
 		}
 	}
 	function afficherListePresents() {
-		const container = document.getElementById('liste-presents-details');
-		container.innerHTML = '';
+    const container = document.getElementById('liste-presents-details');
+    container.innerHTML = '';
 
-		if (presentsAujourdhui.size === 0) {
+    if (presentsAujourdhui.size === 0) {
 			container.innerHTML = '<p style="padding:15px; color:#999;">Aucun présent pour le moment.</p>';
 		} else {
-			// On boucle sur les IDs présents dans le Set
+			// 1. Convertir le Set en tableau d'objets complets
+			let listeTriee = [];
 			presentsAujourdhui.forEach(id => {
-				// On cherche les détails du membre dans le cache
 				const m = membresCache.find(x => x.id === id);
-				const div = document.createElement('div');
-				div.style.padding = "10px 15px";
-				div.style.borderBottom = "1px solid #f5f5f5";
-				
 				if (m) {
-					div.innerHTML = `<strong>${m.prenom} ${m.nom}</strong> <br><small style="color:#666;">${m.id}</small>`;
+					listeTriee.push(m);
 				} else {
-					div.innerHTML = `<strong>Membre inconnu</strong> <br><small style="color:#666;">${id}</small>`;
+					// Sécurité si un ID n'est pas trouvé dans le cache
+					listeTriee.push({ id: id, prenom: "Inconnu", nom: "(" + id + ")" });
 				}
+			});
+
+			// 2. Trier par prénom (puis par nom si les prénoms sont identiques)
+			listeTriee.sort((a, b) => {
+				const prenomA = a.prenom.toLowerCase();
+				const prenomB = b.prenom.toLowerCase();
+				
+				if (prenomA < prenomB) return -1;
+				if (prenomA > prenomB) return 1;
+				
+				// Si même prénom, tri par nom
+				const nomA = a.nom.toLowerCase();
+				const nomB = b.nom.toLowerCase();
+				return nomA.localeCompare(nomB);
+			});
+
+			// 3. Affichage
+			listeTriee.forEach(m => {
+				const div = document.createElement('div');
+				div.style.padding = "12px 15px";
+				div.style.borderBottom = "1px solid #f0f0f0";
+				div.style.display = "flex";
+				div.style.justifyContent = "space-between";
+				div.style.alignItems = "center";
+				
+				div.innerHTML = `
+					<div style="text-align: left;">
+						<div style="font-weight: bold; color: #333;">${m.prenom} ${m.nom}</div>
+						<div style="font-size: 0.75rem; color: #888;">${m.id}</div>
+					</div>
+					<div style="font-size: 0.7rem; color: var(--primary); font-weight: bold;">PRÉSENT</div>
+				`;
 				container.appendChild(div);
 			});
 		}
