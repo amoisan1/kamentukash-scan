@@ -279,7 +279,10 @@
 						<div style="font-weight: bold; color: #333;">${m.prenom} ${m.nom}</div>
 						<div style="font-size: 0.75rem; color: #888;">${m.id}</div>
 					</div>
-					<div style="font-size: 0.7rem; color: var(--primary); font-weight: bold;">PRÉSENT</div>
+					<div onclick="demanderSuppression('${m.id}', '${m.prenom} ${m.nom}')" 
+						 style="font-size: 0.7rem; color: var(--error); font-weight: bold; cursor: pointer; padding: 5px 10px; border: 1px solid var(--error); border-radius: 8px;">
+						 EFFACER
+					</div>
 				`;
 				container.appendChild(div);
 			});
@@ -288,7 +291,38 @@
 		document.getElementById('presents-modal-overlay').style.display = 'block';
 		document.getElementById('presents-modal').style.display = 'block';
 	}
+	function demanderSuppression(id, nomComplet) {
+			const confirmation = confirm(`Voulez-vous vraiment retirer ${nomComplet} de la liste des présents ?`);
+			
+			if (confirmation) {
+				retirerPresence(id);
+			}
+		}
 
+	async function retirerPresence(id) {
+			// 1. Retrait du Set local
+			if (presentsAujourdhui.has(id)) {
+				presentsAujourdhui.delete(id);
+				
+				// 2. Mise à jour immédiate de l'affichage
+				document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+				
+				// 3. Fermer et rouvrir la liste pour rafraîchir l'affichage
+				afficherListePresents(); 
+
+				// 4. Information au serveur (Google Sheets)
+				// Note: On ajoute une action "supprimer" à ton script Google
+				const url = `${SCRIPT_URL}?action=supprimer&code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+				
+				try {
+					await fetch(PROXY + encodeURIComponent(url));
+					console.log("Suppression synchronisée");
+				} catch (e) {
+					console.error("Erreur de synchro suppression, sera effectif localement");
+					// Optionnel : tu peux gérer une file d'attente pour les suppressions aussi
+				}
+			}
+		}
 	function fermerListePresents() {
 		document.getElementById('presents-modal-overlay').style.display = 'none';
 		document.getElementById('presents-modal').style.display = 'none';
