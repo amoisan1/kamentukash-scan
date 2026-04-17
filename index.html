@@ -480,7 +480,7 @@
     function startScan() {
         document.getElementById('reader-container').style.display = 'block';
         if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, onScanSuccess).catch(e => alert("Caméra bloquée"));
+        html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: 250, height: 250 },aspectRatio: 1.0 }, onScanSuccess).catch(e => alert("Caméra bloquée"));
     }
 
     function onScanSuccess(decodedText) {
