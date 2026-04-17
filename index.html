@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>KScan Pro - Multi-Périodes</title>
+    <title>KScan Pro - Final v4</title>
 
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -13,23 +13,32 @@
             --bg-gradient: linear-gradient(135deg, #f0f4f8 0%, #d7e1ec 100%); 
         }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg-gradient); text-align: center; min-height: 100vh; overflow-x: hidden; }
+        
         #status-bar { display: flex; align-items: center; justify-content: center; padding: 12px; background: white; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.85rem; font-weight: 600; position: sticky; top: 0; z-index: 10; }
         #status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 8px; }
         .online { background: #4CAF50 !important; box-shadow: 0 0 8px #4CAF50; }
+
         .glass-card { background: rgba(255,255,255,0.95); padding: 30px 20px; border-radius: 25px; margin: 20px auto; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
         .input-inscription { width: 100%; padding: 12px; margin: 8px 0; border: 2px solid #ced4da; border-radius: 10px; box-sizing: border-box; font-size: 1rem; }
+        
         .btn-save { width: 100%; padding: 15px; border-radius: 15px; background: var(--success); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; }
         .btn-scan { width: 180px; height: 180px; border-radius: 50%; background: var(--primary); color: white; border: 8px solid rgba(255,255,255,0.5); font-weight: bold; font-size: 1.1rem; box-shadow: 0 15px 35px rgba(0, 86, 179, 0.3); cursor: pointer; margin: 20px 0; }
         .btn-next { width: 100%; padding: 18px; border-radius: 15px; background: #212529; color: white; border: none; font-weight: bold; margin-top: 10px; cursor: pointer; }
+
         #login-screen { height: 85vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #home-screen { display: none; flex-direction: column; align-items: center; padding-top: 20px; }
+        
         #reader-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; }
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 200; backdrop-filter: blur(8px); }
         #result-card, #search-modal, #presents-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 350px; padding: 25px; border-radius: 30px; background: white; z-index: 210; text-align: center; }
+        
         .badge { display: inline-block; padding: 10px 20px; border-radius: 15px; color: white; font-weight: bold; margin: 10px 0; text-transform: uppercase; font-size: 0.8rem; }
         .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; margin-right: 10px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .illustration-bas { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 400px; opacity: 0.1; z-index: -1; pointer-events: none; }
+
+        .illustration-bas { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 400px; opacity: 0.15; z-index: -1; pointer-events: none; }
+        
+        #version-display { position: fixed; bottom: 5px; right: 10px; font-size: 0.7rem; color: #999; font-family: monospace; z-index: 1000; }
     </style>
 </head>
 <body>
@@ -98,18 +107,21 @@
     <button class="btn-next" onclick="fermerListePresents()">FERMER</button>
 </div>
 
-<div id="version-display" style="position: fixed; bottom: 5px; right: 10px; font-size: 0.7rem; color: #999; font-family: monospace;">Build: --/--</div>
+<img src="https://raw.githubusercontent.com/amoisan1/kamentukash-scan/main/image-bas.webp" class="illustration-bas" alt="Décoration">
+
+<div id="version-display">Chargement build...</div>
 
 <audio id="audio-bip" src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" preload="auto"></audio>
 
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQOsi7pSMMQRN_Tyw24vHFHcmlCI6HH_6fz0N8kDw81jL_sq1AH0xXBrEbj-9shFte/exec";
     const PROXY = "https://api.codetabs.com/v1/proxy?quest=";
+    const GITHUB_USER = "amoisan1";
+    const GITHUB_REPO = "kamentukash-scan";
     
     let html5QrCode, membresCache = [], surveillantActif = "";
     let presencesParPeriode = { "MATIN": new Set(), "MIDI": new Set(), "SOIR": new Set(), "NUIT": new Set() };
-    let fileAttenteScans = JSON.parse(localStorage.getItem('file_attente') || '[]'), isSyncing = false;
-
+    
     window.onload = initialiser;
 
     function getPeriodeActuelle() {
@@ -120,7 +132,19 @@
         return "NUIT";
     }
 
+    async function fetchGithubVersion() {
+        try {
+            const resp = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/commits/main`);
+            const data = await resp.json();
+            if (data && data.commit) {
+                const date = new Date(data.commit.committer.date);
+                document.getElementById('version-display').innerText = "Build: " + date.toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+            }
+        } catch (e) { document.getElementById('version-display').innerText = "v. hors-ligne"; }
+    }
+
     async function initialiser() {
+        fetchGithubVersion();
         const localMembres = localStorage.getItem('membres_cache');
         if (localMembres) {
             membresCache = JSON.parse(localMembres);
@@ -142,7 +166,7 @@
             select.innerHTML = '<option value="">-- Choisir --</option>';
             data.forEach(n => { let o = document.createElement('option'); o.value = n; o.innerText = n; select.appendChild(o); });
             document.getElementById('btn-entrer').style.display = "flex";
-        } catch (e) { console.log("Erreur surveillants offline"); }
+        } catch (e) { console.log("Erreur surveillants"); }
 
         syncMembres();
     }
@@ -174,9 +198,7 @@
         const p = getPeriodeActuelle();
         const estUnDoublon = presencesParPeriode[p].has(m.id);
         showResult(m, estUnDoublon);
-        
-        envoyerScan({ code: m.id, surveillant: surveillantActif });
-        
+        envoyerScan({ code: m.id });
         if (!estUnDoublon) {
             presencesParPeriode[p].add(m.id);
             actualiserCompteurs();
@@ -185,26 +207,24 @@
 
     async function envoyerScan(data) {
         const url = `${SCRIPT_URL}?code=${encodeURIComponent(data.code)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-        try { await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' }); } 
-        catch (e) { console.log("Scan stocké localement"); }
+        try { await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' }); } catch (e) {}
     }
 
     function showResult(m, dejaPresent = false) {
         const card = document.getElementById('result-card');
         card.innerHTML = "";
-        
         if (m.etat === "NOUVEAU") {
             card.style.borderTop = "10px solid var(--primary)";
             card.innerHTML = `<h2>CARTE VIERGE</h2><p>ID: ${m.id}</p>
             <input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
             <input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
-            <button class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
+            <button id="btn-save-action" class="btn-save" onclick="sauvegarderMembre('${m.id}')">ENREGISTRER</button>
             <button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
         } else {
             const color = m.etat === "actif" ? "var(--success)" : "var(--warning)";
             card.style.borderTop = "10px solid " + color;
             card.innerHTML = `
-                ${dejaPresent ? '<div style="color:orange; font-weight:bold;">⚠️ DÉJÀ SCANNÉ</div>' : ''}
+                ${dejaPresent ? '<div style="color:orange; font-weight:bold; font-size:1.2rem; margin-bottom:10px;">⚠️ DÉJÀ SCANNÉ</div>' : ''}
                 <h2>${m.prenom} ${m.nom}</h2>
                 <div class="badge" style="background:${color}">${m.etat.toUpperCase()}</div>
                 <p>${m.id}</p>
@@ -215,13 +235,40 @@
     }
 
     async function sauvegarderMembre(id) {
+        const p = document.getElementById('ins-prenom').value.trim();
+        const n = document.getElementById('ins-nom').value.trim();
+        if(!p || !n) return alert("Champs vides");
+        const btn = document.getElementById('btn-save-action');
+        btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> ENVOI...';
+        try {
+            const url = `${SCRIPT_URL}?action=inscrire&id=${id}&prenom=${p}&nom=${n}&surveillant=${surveillantActif}`;
+            await fetch(PROXY + encodeURIComponent(url));
+            closeCard(); syncMembres();
+        } catch (e) { alert("Erreur connexion"); btn.disabled = false; btn.innerText = "RÉESSAYER"; }
+    }
+
+    async function preparerNouvelInvite() {
+        fermerRecherche();
+        const id = "KAM-ID-9999-" + Date.now().toString().slice(-4);
+        const card = document.getElementById('result-card');
+        card.style.borderTop = "10px solid #6f42c1";
+        card.innerHTML = `<h2>INVITÉ</h2><p>ID: ${id}</p>
+        <input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
+        <input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
+        <button id="btn-save-invite" class="btn-save" style="background:#6f42c1;" onclick="sauvegarderInvite('${id}')">VALIDER</button>
+        <button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>`;
+        document.getElementById('overlay').style.display = "block";
+        card.style.display = "block";
+    }
+
+    async function sauvegarderInvite(id) {
         const p = document.getElementById('ins-prenom').value;
         const n = document.getElementById('ins-nom').value;
-        if(!p || !n) return alert("Remplir nom/prénom");
-        const url = `${SCRIPT_URL}?action=inscrire&id=${id}&prenom=${p}&nom=${n}&surveillant=${surveillantActif}`;
+        const btn = document.getElementById('btn-save-invite');
+        btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>...';
+        const url = `${SCRIPT_URL}?action=inscrire&id=${id}&prenom=${p}&nom=${n}&surveillant=${surveillantActif}&statut=INVITÉ`;
         await fetch(PROXY + encodeURIComponent(url));
-        closeCard();
-        syncMembres();
+        closeCard(); syncMembres();
     }
 
     function startScan() {
@@ -234,13 +281,10 @@
             const m = membresCache.find(x => x.id === id);
             if (m) validerMembre(m);
             else if (id.includes("KAM")) showResult({ id: id, etat: "NOUVEAU" });
-            else alert("QR Inconnu");
         });
     }
 
-    function stopScan() {
-        if (html5QrCode) html5QrCode.stop().then(() => { document.getElementById('reader-container').style.display = 'none'; });
-    }
+    function stopScan() { if (html5QrCode) html5QrCode.stop().then(() => { document.getElementById('reader-container').style.display = 'none'; }); }
 
     function ouvrirRecherche() {
         document.getElementById('search-modal-overlay').style.display = 'block';
@@ -250,35 +294,48 @@
 
     function filtrerRecherche() {
         const val = document.getElementById('input-recherche').value.toLowerCase();
-        const res = membresCache.filter(m => m.prenom.toLowerCase().includes(val) || m.nom.toLowerCase().includes(val));
+        const res = membresCache.filter(m => m.prenom.toLowerCase().includes(val) || m.nom.toLowerCase().includes(val)).sort((a,b) => a.prenom.localeCompare(b.prenom));
         const container = document.getElementById('liste-resultats');
         container.innerHTML = '';
-        res.slice(0, 20).forEach(m => {
+        res.slice(0, 25).forEach(m => {
             const d = document.createElement('div');
-            d.style.padding = "10px"; d.style.borderBottom = "1px solid #eee"; d.style.cursor = "pointer";
-            d.innerHTML = `<strong>${m.prenom} ${m.nom}</strong>`;
+            d.style.padding = "12px"; d.style.borderBottom = "1px solid #eee"; d.style.textAlign = "left";
+            d.innerHTML = `<strong>${m.prenom} ${m.nom}</strong> <small style="color:#999 float:right;">${m.id}</small>`;
             d.onclick = () => { fermerRecherche(); validerMembre(m); };
             container.appendChild(d);
         });
     }
 
     function afficherListePresents(periode) {
-        document.getElementById('titre-presents').innerText = "Présents - " + periode;
+        document.getElementById('titre-presents').innerText = "Présents : " + periode;
         const container = document.getElementById('liste-presents-details');
         container.innerHTML = '';
         const ids = presencesParPeriode[periode];
-        if(!ids || ids.size === 0) container.innerHTML = '<p style="padding:10px;">Personne...</p>';
+        if(!ids || ids.size === 0) container.innerHTML = '<p style="padding:20px; color:#999;">Personne pour le moment.</p>';
         else {
+            let temp = [];
             ids.forEach(id => {
                 const m = membresCache.find(x => x.id === id);
+                temp.push(m ? m : { id: id, prenom: "INVITÉ", nom: "" });
+            });
+            temp.sort((a,b) => a.prenom.localeCompare(b.prenom)).forEach(m => {
                 const div = document.createElement('div');
-                div.style.padding = "10px"; div.style.borderBottom = "1px solid #eee";
-                div.innerHTML = `<strong>${m ? m.prenom : 'Inconnu'} ${m ? m.nom : id}</strong>`;
+                div.style.padding = "12px"; div.style.borderBottom = "1px solid #eee"; div.style.display = "flex"; div.style.justifyContent="space-between";
+                div.innerHTML = `<span><strong>${m.prenom}</strong> ${m.nom}</span> 
+                <span onclick="supprimerPresence('${m.id}', '${periode}')" style="color:red; font-size:0.7rem; font-weight:bold; cursor:pointer;">EFFACER</span>`;
                 container.appendChild(div);
             });
         }
         document.getElementById('presents-modal-overlay').style.display = 'block';
         document.getElementById('presents-modal').style.display = 'block';
+    }
+
+    async function supprimerPresence(id, periode) {
+        if(!confirm("Retirer cette personne ?")) return;
+        const url = `${SCRIPT_URL}?action=supprimer&code=${id}&surveillant=${surveillantActif}`;
+        await fetch(PROXY + encodeURIComponent(url));
+        presencesParPeriode[periode].delete(id);
+        fermerListePresents(); actualiserCompteurs();
     }
 
     function closeCard() { document.getElementById('overlay').style.display = 'none'; document.getElementById('result-card').style.display = 'none'; }
