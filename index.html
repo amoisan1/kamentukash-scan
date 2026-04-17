@@ -169,6 +169,9 @@
     <button class="btn-save" style="background:#6f42c1; margin-bottom:15px; border:none; color:white;" onclick="preparerNouvelInvite()">
         + AJOUTER UN INVITÉ
     </button>
+	<button class="btn-save" style="background: #2c3e50; margin-bottom: 15px; border:none; color:white;" onclick="preparerGroupeInvites()">
+    + AJOUTER UN GROUPE
+	</button>
     <input type="text" id="input-recherche" class="input-inscription" placeholder="Nom ou Prénom..." onkeyup="filtrerRecherche()">
     <div id="liste-resultats" style="max-height: 250px; overflow-y: auto; margin-top: 10px; border: 1px solid #eee; border-radius: 10px;"></div>
     <button class="btn-next" style="background:#ccc;" onclick="fermerRecherche()">RETOUR</button>
@@ -345,6 +348,63 @@
 				closeCard();
 			}
 		}
+	}
+	function preparerGroupeInvites() {
+		fermerRecherche();
+		const card = document.getElementById('result-card');
+		card.style.borderTop = "10px solid #2c3e50"; // Couleur sombre pour les groupes
+		card.innerHTML = `
+			<h2 style="margin-bottom:5px;">AJOUT DE GROUPE</h2>
+			<p style="color:#666; font-size:0.8rem;">Combien de personnes à ajouter ?</p>
+			<input type="number" id="input-quantite-groupe" class="input-inscription" value="1" min="1" max="50">
+			<button id="btn-save-groupe" class="btn-save" style="background:#2c3e50;" onclick="validerAjoutGroupe()">
+				VALIDER L'AJOUT
+			</button>
+			<button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>
+		`;
+		document.getElementById('overlay').style.display = "block";
+		card.style.display = "block";
+	}
+
+	async function validerAjoutGroupe() {
+		const quantite = parseInt(document.getElementById('input-quantite-groupe').value);
+		const btn = document.getElementById('btn-save-groupe');
+		
+		if (isNaN(quantite) || quantite < 1) return alert("Quantité invalide");
+		if (quantite > 50) return alert("Maximum 50 à la fois");
+
+		btn.disabled = true;
+		const card = document.getElementById('result-card');
+		
+		// On boucle pour créer chaque invité
+		for (let i = 1; i <= quantite; i++) {
+			btn.innerHTML = `<span class="spinner"></span> Envoi ${i} / ${quantite}`;
+			
+			// ID unique : KAM-GRP-Heure-Index
+			const uniqueId = `KAM-ID-9999-G${Date.now().toString().slice(-4)}${i}`;
+			const prenom = "Groupe";
+			const nom = `Invité ${i}`;
+
+			try {
+				const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(uniqueId)}&prenom=${encodeURIComponent(prenom)}&nom=${encodeURIComponent(nom)}&surveillant=${encodeURIComponent(surveillantActif)}&statut=INVITÉ`;
+				await fetch(PROXY + encodeURIComponent(url));
+				
+				// Mise à jour locale du compteur pour chaque succès
+				presentsAujourdhui.add(uniqueId);
+				document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+			} catch (e) {
+				console.error("Erreur sur l'invité " + i);
+			}
+		}
+
+		// Affichage final
+		card.innerHTML = `
+			<div style="padding:20px;">
+				<div style="font-size:40px;">👥</div>
+				<h3>GROUPE AJOUTÉ</h3>
+				<p>${quantite} personnes enregistrées avec succès.</p>
+				<button class="btn-next" onclick="closeCard()">TERMINER</button>
+			</div>`;
 	}
 	function fermerListePresents() {
 		document.getElementById('presents-modal-overlay').style.display = 'none';
