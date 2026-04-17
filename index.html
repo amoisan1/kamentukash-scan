@@ -216,7 +216,8 @@
 	let presencesParPeriode = {
 		"MATIN": new Set(),
 		"MIDI": new Set(),
-		"SOIR": new Set()
+		"SOIR": new Set(),
+		"NUIT": new Set()
 	};
 	let modeRechercheManuelle = false;
     let fileAttenteScans = JSON.parse(localStorage.getItem('file_attente') || '[]'), isSyncing = false;
@@ -472,24 +473,38 @@
 			const data = await resp.json();
 			
 			if (data && data.membres) {
-				// 1. On garde la mise à jour de la liste des membres
 				membresCache = data.membres;
 				localStorage.setItem('membres_cache', JSON.stringify(data.membres));
 
-				// 2. CORRECTION DU COMPTEUR : 
-				// On remplit le Set avec les vrais IDs reçus du serveur (ex: ["KAM001", "KAM005"])
-				// Au lieu de créer des "PRE_0", "PRE_1"...
-				presentsAujourdhui = new Set(data.presentsIds || []);
+				// On vide et on remplit nos 3 Sets avec les données structurées du serveur
+				presencesParPeriode["MATIN"] = new Set(data.presentsIds.MATIN || []);
+				presencesParPeriode["MIDI"] = new Set(data.presentsIds.MIDI || []);
+				presencesParPeriode["SOIR"] = new Set(data.presentsIds.SOIR || []);
 
-				// 3. Mise à jour de l'affichage
-				document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+				// Mise à jour de l'affichage des compteurs
+				actualiserCompteursVisuels();
+
 				document.getElementById('status-text').innerText = membresCache.length + " membres sync";
 				document.getElementById('status-dot').classList.add('online');
+				document.getElementById('status-dot').style.backgroundColor = "#4CAF50";
 			}
 		} catch (e) { 
+			console.error("Erreur Sync:", e);
 			document.getElementById('status-text').innerText = "Mode Hors-ligne"; 
+			document.getElementById('status-dot').style.backgroundColor = "#ccc";
 		}
 	}
+
+// Petite fonction d'aide pour mettre à jour les chiffres à l'écran
+function actualiserCompteursVisuels() {
+    if(document.getElementById('nb-matin')) document.getElementById('nb-matin').innerText = presencesParPeriode["MATIN"].size;
+    if(document.getElementById('nb-midi')) document.getElementById('nb-midi').innerText = presencesParPeriode["MIDI"].size;
+    if(document.getElementById('nb-soir')) document.getElementById('nb-soir').innerText = presencesParPeriode["SOIR"].size;
+    
+    // Si tu as gardé l'ancien compteur global "nb-presents"
+    const total = presencesParPeriode["MATIN"].size + presencesParPeriode["MIDI"].size + presencesParPeriode["SOIR"].size;
+    if(document.getElementById('nb-presents')) document.getElementById('nb-presents').innerText = total;
+}
 
     function validerSurveillant() {
         const val = document.getElementById('select-surveillant').value;
