@@ -251,7 +251,7 @@
 					listeTriee.push(m);
 				} else {
 					// Sécurité si un ID n'est pas trouvé dans le cache
-					listeTriee.push({ id: id, prenom: "Inconnu", nom: "(" + id + ")" });
+					listeTriee.push({ id: id, prenom: "INVITÉ", nom: "(" + id.slice(-4) + ")" });
 				}
 			});
 
@@ -586,32 +586,37 @@
 		const p = document.getElementById('ins-prenom').value.trim();
 		const n = document.getElementById('ins-nom').value.trim();
 		const btn = document.getElementById('btn-save-invite');
-		if(!p || !n) return alert("Champs obligatoires");
+		if(!p || !n) return alert("Nom et Prénom requis");
 
 		btn.disabled = true;
 		btn.innerHTML = '<span class="spinner"></span> ENVOI...';
 
 		try {
-			// On passe explicitement action=inscrire ET statut=INVITÉ
 			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}&statut=INVITÉ`;
-			
 			await fetch(PROXY + encodeURIComponent(url));
 
-			// Mise à jour locale pour que l'invité apparaisse dans le compteur et la liste
+			// --- CORRECTION DU BUG ICI ---
 			const invite = { id: id, prenom: p, nom: n, etat: "INVITÉ" };
-			membresCache.push(invite);
+			
+			// On ne l'ajoute PLUS au membresCache pour ne pas augmenter le compteur de membres total
+			// Mais on l'ajoute à la liste des PRÉSENTS pour qu'il soit compté dans les entrées
 			presentsAujourdhui.add(id);
+			
+			// On l'ajoute temporairement au cache SANS changer le texte du compteur de membres
+			membresCache.push(invite); 
+
+			// On met à jour uniquement le compteur de PRÉSENCES
 			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
 
 			document.getElementById('result-card').innerHTML = `
 				<div style="padding:20px;">
 					<div style="font-size:40px;">💜</div>
-					<h3>BIENVENU(E)</h3>
+					<h3>INVITÉ ACCEPTÉ</h3>
 					<p>${p} ${n}</p>
-					<button class="btn-next" onclick="closeCard()">TERMINER</button>
+					<button class="btn-next" onclick="closeCard()">CONTINUER</button>
 				</div>`;
 		} catch (e) {
-			alert("Erreur de connexion");
+			alert("Erreur réseau");
 			btn.disabled = false;
 			btn.innerText = "RÉESSAYER";
 		}
