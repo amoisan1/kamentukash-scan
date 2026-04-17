@@ -151,9 +151,21 @@
         <span>🔍</span> AJOUT MANUEL
     </div>
 
-    <div style="margin-top: 30px; background: white; padding: 12px 25px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eee; display: inline-block; cursor: pointer;" onclick="afficherListePresents()">
-    <span style="color: #666; font-size: 0.9rem; font-weight: 600;">PRÉSENCES :</span>
-    <span id="nb-presents" style="color: var(--primary); font-size: 1.4rem; font-weight: 800; margin-left: 5px;">0</span>
+    <div style="margin-top: 20px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+		<div class="compteur-periode" onclick="afficherListePresents('MATIN')" style="background: white; padding: 10px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); border: 1px solid #eee; cursor: pointer;">
+			<div style="font-size: 0.7rem; color: #666;">MATIN</div>
+			<div id="nb-matin" style="color: var(--primary); font-size: 1.2rem; font-weight: 800;">0</div>
+		</div>
+
+		<div class="compteur-periode" onclick="afficherListePresents('MIDI')" style="background: white; padding: 10px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); border: 1px solid #eee; cursor: pointer;">
+			<div style="font-size: 0.7rem; color: #666;">APRÈS-MIDI</div>
+			<div id="nb-midi" style="color: var(--primary); font-size: 1.2rem; font-weight: 800;">0</div>
+		</div>
+
+		<div class="compteur-periode" onclick="afficherListePresents('SOIR')" style="background: white; padding: 10px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.05); border: 1px solid #eee; cursor: pointer;">
+			<div style="font-size: 0.7rem; color: #666;">SOIR</div>
+			<div id="nb-soir" style="color: var(--primary); font-size: 1.2rem; font-weight: 800;">0</div>
+		</div>
 	</div>
 </div>
 
@@ -199,7 +211,13 @@
 	const GITHUB_USER = "amoisan1";
 	const GITHUB_REPO = "kamentukash-scan";
 
-    let html5QrCode, membresCache = [], presentsAujourdhui = new Set(), surveillantActif = "";
+    let html5QrCode, membresCache = [], surveillantActif = "";
+
+	let presencesParPeriode = {
+		"MATIN": new Set(),
+		"MIDI": new Set(),
+		"SOIR": new Set()
+	};
 	let modeRechercheManuelle = false;
     let fileAttenteScans = JSON.parse(localStorage.getItem('file_attente') || '[]'), isSyncing = false;
 
@@ -322,7 +340,13 @@
 		document.getElementById('overlay').style.display = "block";
 		card.style.display = "block";
 	}
-
+	function getPeriodeActuelle() {
+    const heure = new Date().getHours();
+		if (heure >= 7 && heure < 12) return "MATIN";
+		if (heure >= 12 && heure < 17) return "MIDI";
+		if (heure >= 17) return "SOIR";
+		return "NUIT"; // Optionnel
+	}
 	async function retirerPresence(id) {
 		if (presentsAujourdhui.has(id)) {
 			// 1. Visuel immédiat
@@ -502,25 +526,29 @@
 		showResult(m, presentsAujourdhui.has(m.id), true);
 	}
     function validerMembre(m) {
-		// 1. On vérifie si l'ID est déjà dans le Set local pour l'affichage
-		const estUnDoublon = presentsAujourdhui.has(m.id);
+		const periode = getPeriodeActuelle();
+		const estUnDoublon = presencesParPeriode[periode].has(m.id);
 		
-		// 2. On affiche le résultat à l'utilisateur
 		showResult(m, estUnDoublon);
 		
-		// 3. CORRECTIF CRUCIAL : On envoie TOUJOURS le scan à Google Sheets
-		// même si c'est un "doublon" local, pour être sûr que la Sheet soit à jour
+		// On envoie toujours le scan, mais on l'ajoute localement à la bonne période
 		envoyerScan({ 
 			code: m.id, 
 			surveillant: surveillantActif, 
+			periode: periode, // On envoie l'info à Google Sheets
 			timestamp: new Date().toISOString() 
 		});
 		
-		// 4. Mise à jour du compteur local
 		if (!estUnDoublon) {
-			presentsAujourdhui.add(m.id);
-			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+			presencesParPeriode[periode].add(m.id);
+			actualiserCompteursVisuels();
 		}
+	}
+
+	function actualiserCompteursVisuels() {
+		document.getElementById('nb-matin').innerText = presencesParPeriode["MATIN"].size;
+		document.getElementById('nb-midi').innerText = presencesParPeriode["MIDI"].size;
+		document.getElementById('nb-soir').innerText = presencesParPeriode["SOIR"].size;
 	}
 
     function showResult(m, dejaPresent = false, demandeConfirmation = false) {
