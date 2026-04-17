@@ -148,7 +148,7 @@
     <button class="btn-scan" onclick="startScan()">📷<br><br>SCANNER</button>
 
     <div id="search-trigger" onclick="ouvrirRecherche()" style="margin-top: 15px; color: var(--primary); font-weight: bold; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 10px;">
-        <span>🔍</span> RECHERCHE MANUELLE
+        <span>🔍</span> AJOUT MANUEL
     </div>
 
     <div style="margin-top: 30px; background: white; padding: 12px 25px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eee; display: inline-block; cursor: pointer;" onclick="afficherListePresents()">
@@ -164,7 +164,7 @@
 
 <div id="search-modal-overlay" class="overlay" onclick="fermerRecherche()"></div>
 <div id="search-modal">
-    <h3>Recherche Membre</h3>
+    <h3>Ajout Manuel</h3>
     
     <button class="btn-save" style="background:#6f42c1; margin-bottom:15px; border:none; color:white;" onclick="preparerNouvelInvite()">
         + AJOUTER UN INVITÉ
@@ -559,17 +559,25 @@
 
 	function preparerNouvelInvite() {
 		fermerRecherche();
-		const tempId = "KAM99" + Date.now().toString().slice(-5); 
+		
+		// Génération du numéro unique (4 derniers chiffres du temps actuel)
+		const uniqueNum = Date.now().toString().slice(-4); 
+		const tempId = `KAM-ID-9999-${uniqueNum}`; 
+		
 		const card = document.getElementById('result-card');
-		card.style.borderTop = "10px solid #6f42c1";
+		card.style.borderTop = "10px solid #6f42c1"; // Couleur violette
 		card.innerHTML = `
-			<h2>NOUVEL INVITÉ</h2>
-			<p style="font-size:0.8rem; color:#666;">ID temporaire : ${tempId}</p>
-			<input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom">
-			<input type="text" id="ins-nom" class="input-inscription" placeholder="Nom">
-			<button id="btn-save-invite" class="btn-save" style="background:#6f42c1;" onclick="sauvegarderInvite('${tempId}')">VALIDER L'INVITÉ</button>
+			<h2 style="margin-bottom:5px;">NOUVEL INVITÉ</h2>
+			<p style="color:#666; font-size:0.8rem;">ID Formaté : <strong>${tempId}</strong></p>
+			<input type="text" id="ins-prenom" class="input-inscription" placeholder="Prénom de l'invité">
+			<input type="text" id="ins-nom" class="input-inscription" placeholder="Nom de l'invité">
+			<button id="btn-save-invite" class="btn-save" style="background:#6f42c1;" 
+					onclick="sauvegarderInvite('${tempId}')">
+				VALIDER L'INVITÉ
+			</button>
 			<button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>
 		`;
+		
 		document.getElementById('overlay').style.display = "block";
 		card.style.display = "block";
 	}
