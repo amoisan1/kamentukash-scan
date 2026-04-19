@@ -395,8 +395,8 @@
 			}
 		}
 
-		// On lance la synchronisation
-		syncMembres();
+		
+		
 
 		// Affichage final
 		card.innerHTML = `
@@ -586,20 +586,21 @@
 		}
 
 		try {
-			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}`;
-			
-			await fetch(PROXY + encodeURIComponent(url));
+			const dataInscription = {
+				code: id,
+				prenom: p,
+				nom: n,
+				surveillant: surveillantActif,
+				timestamp: new Date().toISOString()
+			};
 
-			// 1. Mise à jour du cache des membres (pour la recherche)
+			// On utilise notre nouvelle fonction universelle
+			envoyerScan(dataInscription);
+
 			membresCache.push({ id: id, prenom: p, nom: n, etat: "non-confirmé" });
 			localStorage.setItem('membres_cache', JSON.stringify(membresCache));
 
-			// --- CORRECTIF DU BUG : MISE À JOUR DU COMPTEUR ---
-			
-
-			// Affichage succès
-			card.innerHTML = `<div style="padding:20px;"><div style="font-size:40px;">✅</div><h3>ENREGISTRÉ !</h3><button class="btn-next" onclick="closeCard()">CONTINUER</button></div>`;
-			
+			card.innerHTML = `<div style="padding:20px;"><div style="font-size:40px;">✅</div><h3>ENREGISTRÉ !</h3><p style="font-size:0.8rem; color:orange;">Sera synchronisé dès que possible.</p><button class="btn-next" onclick="closeCard()">CONTINUER</button></div>`;
 		} catch (e) {
  
 			console.error("Erreur fetch:", e);
@@ -645,26 +646,35 @@
 		if(!p || !n) return alert("Nom et Prénom requis");
 
 		btn.disabled = true;
-		btn.innerHTML = '<span class="spinner"></span> ENVOI...';
+		btn.innerHTML = '<span class="spinner"></span> PRÉPARATION...';
 
 		try {
-			const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(id)}&prenom=${encodeURIComponent(p)}&nom=${encodeURIComponent(n)}&surveillant=${encodeURIComponent(surveillantActif)}&statut=INVITÉ`;
-			await fetch(PROXY + encodeURIComponent(url));
+			// On prépare l'objet complet pour la file d'attente
+			const dataInvite = {
+				code: id,
+				prenom: p,
+				nom: n,
+				surveillant: surveillantActif,
+				statut: "INVITÉ", // Précise bien le statut ici
+				timestamp: new Date().toISOString()
+			};
 
-			// --- CORRECTION DU BUG ICI ---
-			const invite = { id: id, prenom: p, nom: n, etat: "INVITÉ" };
-			
-			membresCache.push(invite);
-			
+			// On l'envoie vers notre moteur universel (qui gère le offline)
+			envoyerScan(dataInvite);
+
+			// On l'ajoute au cache local pour qu'il soit trouvable immédiatement en recherche manuelle
+			membresCache.push({ id: id, prenom: p, nom: n, etat: "INVITÉ" });
+
 			document.getElementById('result-card').innerHTML = `
 				<div style="padding:20px;">
 					<div style="font-size:40px;">💜</div>
 					<h3>INVITÉ ACCEPTÉ</h3>
 					<p>${p} ${n}</p>
+					<p style="font-size:0.75rem; color:#666;">L'enregistrement sera synchronisé en arrière-plan.</p>
 					<button class="btn-next" onclick="closeCard()">CONTINUER</button>
 				</div>`;
 		} catch (e) {
-			alert("Erreur réseau");
+			alert("Erreur locale lors de la préparation.");
 			btn.disabled = false;
 			btn.innerText = "RÉESSAYER";
 		}
@@ -727,36 +737,53 @@
 	}
 
     async function envoyerScan(data) {
-        const url = `${SCRIPT_URL}?code=${encodeURIComponent(data.code)}&surveillant=${encodeURIComponent(data.surveillant)}`;
-        try {
-            await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
-            updateStatusAttente();
-        } catch (e) {
-            if (!fileAttenteScans.some(s => s.code === data.code && s.timestamp === data.timestamp)) {
-                fileAttenteScans.push(data);
-                localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
-            }
-            updateStatusAttente();
-            setTimeout(traiterFileAttente, 30000);
-        }
-    }
+		// Si data ne contient que le code, c'est un scan simple, sinon c'est une inscription complète
+		const params = data.prenom 
+			? `action=inscrire&id=${encodeURIComponent(data.code)}&prenom=${encodeURIComponent(data.prenom)}&nom=${encodeURIComponent(data.nom)}&surveillant=${encodeURIComponent(data.surveillant)}&statut=${encodeURIComponent(data.statut || "non-confirmé")}`
+			: `code=${encodeURIComponent(data.code)}&surveillant=${encodeURIComponent(data.surveillant)}`;
+
+		const url = `${SCRIPT_URL}?${params}`;
+
+		try {
+			await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+			updateStatusAttente();
+		} catch (e) {
+			// Si ça échoue, on vérifie si c'est déjà dans la file, sinon on l'ajoute
+			if (!fileAttenteScans.some(s => s.code === data.code && s.timestamp === data.timestamp)) {
+				fileAttenteScans.push(data);
+				localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
+			}
+			updateStatusAttente();
+			setTimeout(traiterFileAttente, 30000);
+		}
+	}
 
     async function traiterFileAttente() {
-        if (fileAttenteScans.length === 0 || isSyncing) { updateStatusAttente(); return; }
-        isSyncing = true;
-        while (fileAttenteScans.length > 0) {
-            const scan = fileAttenteScans[0];
-            const url = `${SCRIPT_URL}?code=${encodeURIComponent(scan.code)}&surveillant=${encodeURIComponent(scan.surveillant)}`;
-            try {
-                await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
-                fileAttenteScans.shift();
-                localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
-                await new Promise(r => setTimeout(r, 300)); 
-            } catch (e) { break; }
-        }
-        isSyncing = false;
-        updateStatusAttente();
-    }
+		if (fileAttenteScans.length === 0 || isSyncing) { updateStatusAttente(); return; }
+		isSyncing = true;
+		
+		while (fileAttenteScans.length > 0) {
+			const item = fileAttenteScans[0];
+			
+			// On reconstruit l'URL selon si c'est une inscription ou un scan
+			const params = item.prenom 
+				? `action=inscrire&id=${encodeURIComponent(item.code)}&prenom=${encodeURIComponent(item.prenom)}&nom=${encodeURIComponent(item.nom)}&surveillant=${encodeURIComponent(item.surveillant)}&statut=${encodeURIComponent(item.statut || "non-confirmé")}`
+				: `code=${encodeURIComponent(item.code)}&surveillant=${encodeURIComponent(item.surveillant)}`;
+
+			const url = `${SCRIPT_URL}?${params}`;
+
+			try {
+				await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+				fileAttenteScans.shift(); // On enlève de la file si succès
+				localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
+				await new Promise(r => setTimeout(r, 500)); 
+			} catch (e) { 
+				break; // On arrête si on est toujours hors-ligne
+			}
+		}
+		isSyncing = false;
+		updateStatusAttente();
+	}
 
     function updateStatusAttente() {
         const txt = document.getElementById('status-text'), dot = document.getElementById('status-dot');
