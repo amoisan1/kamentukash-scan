@@ -595,9 +595,7 @@
 			localStorage.setItem('membres_cache', JSON.stringify(membresCache));
 
 			// --- CORRECTIF DU BUG : MISE À JOUR DU COMPTEUR ---
-			// On ne touche pas à presentsAujourdhui ici, syncMembres() s'en chargera 
-			// automatiquement au prochain rafraîchissement pour classer l'ID dans la bonne période.
-			// ------------------------------------------------
+			
 
 			// Affichage succès
 			card.innerHTML = `<div style="padding:20px;"><div style="font-size:40px;">✅</div><h3>ENREGISTRÉ !</h3><button class="btn-next" onclick="closeCard()">CONTINUER</button></div>`;
@@ -657,7 +655,7 @@
 			const invite = { id: id, prenom: p, nom: n, etat: "INVITÉ" };
 			
 			membresCache.push(invite);
-
+			
 			document.getElementById('result-card').innerHTML = `
 				<div style="padding:20px;">
 					<div style="font-size:40px;">💜</div>
@@ -725,6 +723,7 @@
 	document.getElementById('result-card').style.display = 'none'; 
 	
 		modeRechercheManuelle = false;
+		syncMembres();
 	}
 
     async function envoyerScan(data) {
