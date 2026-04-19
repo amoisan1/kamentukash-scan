@@ -187,11 +187,36 @@
     Chargement version...
 </div>
 <div id="presents-modal-overlay" class="overlay" onclick="fermerListePresents()"></div>
-<div id="presents-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; max-width: 350px; padding: 25px; border-radius: 30px; background: white; z-index: 300; text-align: center;">
-    <h3>Présents aujourd'hui</h3>
-    <div id="liste-presents-details" style="max-height: 300px; overflow-y: auto; margin: 15px 0; border: 1px solid #eee; border-radius: 10px; text-align: left;">
+<div id="presents-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 380px; padding: 20px; border-radius: 25px; background: white; z-index: 300; text-align: center; box-shadow: 0 15px 40px rgba(0,0,0,0.2);">
+    <h3 style="margin-top: 0; color: #333;">Présences du jour</h3>
+    
+    <div id="accordeon-periodes" style="max-height: 450px; overflow-y: auto; text-align: left; padding: 5px;">
+        <div style="margin-bottom: 10px;">
+            <div style="background: #e3f2fd; padding: 10px; border-radius: 12px; color: #1976d2; font-weight: bold; display: flex; justify-content: space-between;">
+                <span>🌅 MATIN (6h-12h)</span>
+                <span id="count-MATIN" style="font-size: 0.8rem; opacity: 0.7;">0</span>
+            </div>
+            <div id="liste-MATIN" style="padding: 5px 0 15px 0;"></div>
         </div>
-    <button class="btn-next" onclick="fermerListePresents()">FERMER</button>
+
+        <div style="margin-bottom: 10px;">
+            <div style="background: #fff3e0; padding: 10px; border-radius: 12px; color: #f57c00; font-weight: bold; display: flex; justify-content: space-between;">
+                <span>☀️ APRÈS-MIDI (12h-17h)</span>
+                <span id="count-MIDI" style="font-size: 0.8rem; opacity: 0.7;">0</span>
+            </div>
+            <div id="liste-MIDI" style="padding: 5px 0 15px 0;"></div>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+            <div style="background: #ede7f6; padding: 10px; border-radius: 12px; color: #673ab7; font-weight: bold; display: flex; justify-content: space-between;">
+                <span>🌆 SOIR (17h+)</span>
+                <span id="count-SOIR" style="font-size: 0.8rem; opacity: 0.7;">0</span>
+            </div>
+            <div id="liste-SOIR" style="padding: 5px 0 15px 0;"></div>
+        </div>
+    </div>
+    
+    <button class="btn-next" onclick="fermerListePresents()" style="margin-top: 10px; background: #eee; color: #333;">FERMER</button>
 </div>
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQOsi7pSMMQRN_Tyw24vHFHcmlCI6HH_6fz0N8kDw81jL_sq1AH0xXBrEbj-9shFte/exec";
@@ -199,7 +224,9 @@
 	const GITHUB_USER = "amoisan1";
 	const GITHUB_REPO = "kamentukash-scan";
 
-    let html5QrCode, membresCache = [], presentsAujourdhui = new Set(), surveillantActif = "";
+    let html5QrCode, membresCache = [], surveillantActif = "";
+	// On remplace le Set par un objet avec nos 3 périodes
+	let presentsAujourdhui = { "MATIN": [], "MIDI": [], "SOIR": [] };
 	let modeRechercheManuelle = false;
     let fileAttenteScans = JSON.parse(localStorage.getItem('file_attente') || '[]'), isSyncing = false;
 
@@ -240,105 +267,82 @@
 		}
 	}
 	function afficherListePresents() {
-    const container = document.getElementById('liste-presents-details');
-    container.innerHTML = '';
+		const periodes = ["MATIN", "MIDI", "SOIR"];
+		
+		periodes.forEach(p => {
+			const container = document.getElementById(`liste-${p}`);
+			const badgeCount = document.getElementById(`count-${p}`);
+			container.innerHTML = '';
+			
+			// On récupère les IDs de cette période depuis l'objet presentsAujourdhui
+			const ids = presentsAujourdhui[p] || [];
+			badgeCount.innerText = ids.length + " passage(s)";
 
-    if (presentsAujourdhui.size === 0) {
-			container.innerHTML = '<p style="padding:15px; color:#999;">Aucun présent pour le moment.</p>';
-		} else {
-			// 1. Convertir le Set en tableau d'objets complets
-			let listeTriee = [];
-			presentsAujourdhui.forEach(id => {
-				const m = membresCache.find(x => x.id === id);
-				if (m) {
-					listeTriee.push(m);
-				} else {
-					// Sécurité si un ID n'est pas trouvé dans le cache
-					listeTriee.push({ id: id, prenom: "INVITÉ", nom: "(" + id.slice(-4) + ")" });
-				}
-			});
+			if (ids.length === 0) {
+				container.innerHTML = '<p style="padding: 10px; color: #bbb; font-size: 0.8rem; font-style: italic;">Aucun membre scanné</p>';
+			} else {
+				// Mapping des membres et tri alphabétique par prénom
+				let listeTriee = ids.map(id => {
+					const m = membresCache.find(x => x.id === id);
+					return m ? m : { id: id, prenom: "INVITÉ", nom: "("+id.slice(-4)+")" };
+				}).sort((a, b) => a.prenom.localeCompare(b.prenom));
 
-			// 2. Trier par prénom (puis par nom si les prénoms sont identiques)
-			listeTriee.sort((a, b) => {
-				const prenomA = a.prenom.toLowerCase();
-				const prenomB = b.prenom.toLowerCase();
-				
-				if (prenomA < prenomB) return -1;
-				if (prenomA > prenomB) return 1;
-				
-				// Si même prénom, tri par nom
-				const nomA = a.nom.toLowerCase();
-				const nomB = b.nom.toLowerCase();
-				return nomA.localeCompare(nomB);
-			});
-
-			// 3. Affichage
-			listeTriee.forEach(m => {
-				const div = document.createElement('div');
-				div.style.padding = "12px 15px";
-				div.style.borderBottom = "1px solid #f0f0f0";
-				div.style.display = "flex";
-				div.style.justifyContent = "space-between";
-				div.style.alignItems = "center";
-				
-				div.innerHTML = `
-					<div style="text-align: left;">
-						<div style="font-weight: bold; color: #333;">${m.prenom} ${m.nom}</div>
-						<div style="font-size: 0.75rem; color: #888;">${m.id}</div>
-					</div>
-					<div onclick="demanderSuppression('${m.id}', '${m.prenom} ${m.nom}')" 
-						 style="font-size: 0.7rem; color: var(--error); font-weight: bold; cursor: pointer; padding: 5px 10px; border: 1px solid var(--error); border-radius: 8px;">
-						 EFFACER
-					</div>
-				`;
-				container.appendChild(div);
-			});
-		}
+				listeTriee.forEach(m => {
+					const div = document.createElement('div');
+					div.style.cssText = "padding: 10px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;";
+					div.innerHTML = `
+						<div style="text-align: left;">
+							<div style="font-weight: 600; color: #333; font-size: 0.9rem;">${m.prenom} ${m.nom}</div>
+							<div style="font-size: 0.7rem; color: #999;">${m.id}</div>
+						</div>
+						<div onclick="demanderSuppression('${m.id}', '${m.prenom} ${m.nom}', '${p}')" 
+							 style="color: var(--error); font-size: 0.65rem; font-weight: bold; cursor: pointer; border: 1.5px solid var(--error); padding: 4px 8px; border-radius: 8px;">
+							EFFACER
+						</div>
+					`;
+					container.appendChild(div);
+				});
+			}
+		});
 
 		document.getElementById('presents-modal-overlay').style.display = 'block';
 		document.getElementById('presents-modal').style.display = 'block';
 	}
-	function demanderSuppression(id, nomComplet) {
-		// 1. On cache d'abord la liste des présents pour libérer l'écran
+	function demanderSuppression(id, nomComplet, periode) {
 		fermerListePresents();
-
 		const card = document.getElementById('result-card');
 		card.innerHTML = "";
-		card.style.borderTop = "10px solid var(--error)"; // Bandeau rouge
+		card.style.borderTop = "10px solid var(--error)";
 		
 		card.innerHTML = `
 			<div style="font-size:40px; margin-bottom:10px;">🗑️</div>
-			<h2 style="margin-bottom:5px;">Retirer ?</h2>
-			<p style="margin-bottom:20px;">Voulez-vous vraiment enlever <strong>${nomComplet}</strong> de la liste ?</p>
-			
+			<h2 style="margin-bottom:5px;">Retirer du ${periode} ?</h2>
+			<p>Voulez-vous enlever <strong>${nomComplet}</strong> de cette période ?</p>
 			<button class="btn-save" style="background:var(--error); margin-bottom:10px;" 
-					onclick="retirerPresence('${id}')">OUI, EFFACER</button>
-					
-			<button class="btn-next" style="background:#ccc;" 
-					onclick="closeCard()">ANNULER</button>
+					onclick="retirerPresence('${id}', '${periode}')">OUI, EFFACER</button>
+			<button class="btn-next" style="background:#ccc;" onclick="closeCard()">ANNULER</button>
 		`;
-		
-		// 2. On affiche l'overlay et la carte de confirmation
 		document.getElementById('overlay').style.display = "block";
 		card.style.display = "block";
 	}
 
-	async function retirerPresence(id) {
-		if (presentsAujourdhui.has(id)) {
-			// 1. Visuel immédiat
+	async function retirerPresence(id, periode) {
+		if (presentsAujourdhui[periode] && presentsAujourdhui[periode].includes(id)) {
 			const card = document.getElementById('result-card');
 			card.innerHTML = `<div style="padding:20px;"><span class="spinner" style="border-top-color:var(--error)"></span><br><br>Suppression...</div>`;
 
-			// 2. Retrait local
-			presentsAujourdhui.delete(id);
-			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+			// Retrait local immédiat
+			presentsAujourdhui[periode] = presentsAujourdhui[periode].filter(item => item !== id);
 			
-			// 3. Appel serveur
-			const url = `${SCRIPT_URL}?action=supprimer&code=${encodeURIComponent(id)}&surveillant=${encodeURIComponent(surveillantActif)}`;
+			// Mise à jour du compteur
+			const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
+			document.getElementById('nb-presents').innerText = new Set(tous).size;
+
+			// Appel serveur avec la période
+			const url = `${SCRIPT_URL}?action=supprimer&code=${encodeURIComponent(id)}&periode=${encodeURIComponent(periode)}&surveillant=${encodeURIComponent(surveillantActif)}`;
 			
 			try {
 				await fetch(PROXY + encodeURIComponent(url));
-				// Succès : on ferme tout et on rafraîchit la liste
 				closeCard();
 				if (document.getElementById('presents-modal').style.display === 'block') {
 					afficherListePresents(); 
@@ -388,14 +392,14 @@
 			try {
 				const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(uniqueId)}&prenom=${encodeURIComponent(prenom)}&nom=${encodeURIComponent(nom)}&surveillant=${encodeURIComponent(surveillantActif)}&statut=INVITÉ`;
 				await fetch(PROXY + encodeURIComponent(url));
-				
-				// Mise à jour locale du compteur pour chaque succès
-				presentsAujourdhui.add(uniqueId);
-				document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
 			} catch (e) {
-				console.error("Erreur sur l'invité " + i);
+				console.error("Erreur sur l'invité " + i, e);
 			}
 		}
+
+		// --- AJOUT ICI ---
+		// On lance la synchronisation pour mettre à jour le compteur bleu immédiatement
+		syncMembres(); 
 
 		// Affichage final
 		card.innerHTML = `
@@ -448,17 +452,20 @@
 			const data = await resp.json();
 			
 			if (data && data.membres) {
-				// 1. On garde la mise à jour de la liste des membres
 				membresCache = data.membres;
 				localStorage.setItem('membres_cache', JSON.stringify(data.membres));
 
-				// 2. CORRECTION DU COMPTEUR : 
-				// On remplit le Set avec les vrais IDs reçus du serveur (ex: ["KAM001", "KAM005"])
-				// Au lieu de créer des "PRE_0", "PRE_1"...
-				presentsAujourdhui = new Set(data.presentsIds || []);
+				// On récupère les IDs classés par période envoyés par Google
+				presentsAujourdhui = {
+					"MATIN": data.presentsIds.MATIN || [],
+					"MIDI": data.presentsIds.MIDI || [],
+					"SOIR": data.presentsIds.SOIR || []
+				};
 
-				// 3. Mise à jour de l'affichage
-				document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+				// Calcul du total unique pour le gros chiffre (Jean compte pour 1 même s'il est là Matin et Soir)
+				const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
+				document.getElementById('nb-presents').innerText = new Set(tous).size;
+
 				document.getElementById('status-text').innerText = membresCache.length + " membres sync";
 				document.getElementById('status-dot').classList.add('online');
 			}
@@ -498,12 +505,12 @@
 		// On ferme la recherche pour voir la carte
 		fermerRecherche(); 
 		
-		// On appelle showResult avec un 3ème argument "true" pour dire que c'est une confirmation
-		showResult(m, presentsAujourdhui.has(m.id), true);
+		const dejaLa = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR].includes(m.id);
+		showResult(m, dejaLa, true);
 	}
     function validerMembre(m) {
 		// 1. On vérifie si l'ID est déjà dans le Set local pour l'affichage
-		const estUnDoublon = presentsAujourdhui.has(m.id);
+		const estUnDoublon = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR].includes(m.id);
 		
 		// 2. On affiche le résultat à l'utilisateur
 		showResult(m, estUnDoublon);
@@ -516,11 +523,7 @@
 			timestamp: new Date().toISOString() 
 		});
 		
-		// 4. Mise à jour du compteur local
-		if (!estUnDoublon) {
-			presentsAujourdhui.add(m.id);
-			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
-		}
+		
 	}
 
     function showResult(m, dejaPresent = false, demandeConfirmation = false) {
@@ -595,10 +598,8 @@
 			localStorage.setItem('membres_cache', JSON.stringify(membresCache));
 
 			// --- CORRECTIF DU BUG : MISE À JOUR DU COMPTEUR ---
-			if (!presentsAujourdhui.has(id)) {
-				presentsAujourdhui.add(id); // On l'ajoute aux présents du jour
-				document.getElementById('nb-presents').innerText = presentsAujourdhui.size; // On met à jour l'écran
-			}
+			// On ne touche pas à presentsAujourdhui ici, syncMembres() s'en chargera 
+			// automatiquement au prochain rafraîchissement pour classer l'ID dans la bonne période.
 			// ------------------------------------------------
 
 			// Affichage succès
@@ -658,15 +659,7 @@
 			// --- CORRECTION DU BUG ICI ---
 			const invite = { id: id, prenom: p, nom: n, etat: "INVITÉ" };
 			
-			// On ne l'ajoute PLUS au membresCache pour ne pas augmenter le compteur de membres total
-			// Mais on l'ajoute à la liste des PRÉSENTS pour qu'il soit compté dans les entrées
-			presentsAujourdhui.add(id);
-			
-			// On l'ajoute temporairement au cache SANS changer le texte du compteur de membres
-			membresCache.push(invite); 
-
-			// On met à jour uniquement le compteur de PRÉSENCES
-			document.getElementById('nb-presents').innerText = presentsAujourdhui.size;
+			membresCache.push(invite);
 
 			document.getElementById('result-card').innerHTML = `
 				<div style="padding:20px;">
