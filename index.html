@@ -380,11 +380,9 @@
 		btn.disabled = true;
 		const card = document.getElementById('result-card');
 		
-		// On boucle pour créer chaque invité
 		for (let i = 1; i <= quantite; i++) {
 			btn.innerHTML = `<span class="spinner"></span> Envoi ${i} / ${quantite}`;
 			
-			// ID unique : KAM-GRP-Heure-Index
 			const uniqueId = `KAM-ID-9999-G${Date.now().toString().slice(-4)}${i}`;
 			const prenom = "Groupe";
 			const nom = `Invité ${i}`;
@@ -397,9 +395,8 @@
 			}
 		}
 
-		// --- AJOUT ICI ---
-		// On lance la synchronisation pour mettre à jour le compteur bleu immédiatement
-		syncMembres(); 
+		// On lance la synchronisation
+		syncMembres();
 
 		// Affichage final
 		card.innerHTML = `
