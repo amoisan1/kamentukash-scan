@@ -331,23 +331,27 @@
 			const card = document.getElementById('result-card');
 			card.innerHTML = `<div style="padding:20px;"><span class="spinner" style="border-top-color:var(--error)"></span><br><br>Suppression...</div>`;
 
-			// Retrait local immédiat
+			// 1. Retrait local immédiat
 			presentsAujourdhui[periode] = presentsAujourdhui[periode].filter(item => item !== id);
 			
-			// Mise à jour du compteur
+			// Mise à jour du compteur visuel immédiatement
 			const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
 			document.getElementById('nb-presents').innerText = new Set(tous).size;
 
-			// Appel serveur avec la période
+			// 2. Appel serveur
 			const url = `${SCRIPT_URL}?action=supprimer&code=${encodeURIComponent(id)}&periode=${encodeURIComponent(periode)}&surveillant=${encodeURIComponent(surveillantActif)}`;
 			
 			try {
-				await fetch(PROXY + encodeURIComponent(url));
-				closeCard();
-				if (document.getElementById('presents-modal').style.display === 'block') {
-					afficherListePresents(); 
+				// On attend la réponse réelle du serveur avant de fermer
+				const response = await fetch(PROXY + encodeURIComponent(url));
+				const result = await response.json(); // On s'assure que Google a fini
+
+				if (result.status === "success") {
+					// On ne rafraîchit la liste que maintenant
+					closeCard(); 
 				}
 			} catch (e) {
+				console.error("Erreur suppression:", e);
 				alert("Erreur de connexion, mais retiré localement.");
 				closeCard();
 			}
@@ -741,11 +745,16 @@
 		}
 	}
     function closeCard() { 
-	document.getElementById('overlay').style.display = 'none'; 
-	document.getElementById('result-card').style.display = 'none'; 
-	
+		document.getElementById('overlay').style.display = 'none'; 
+		document.getElementById('result-card').style.display = 'none'; 
+		
 		modeRechercheManuelle = false;
-		syncMembres();
+
+		// Attendre 1 seconde avant de synchroniser pour laisser le temps 
+		// à Google Sheets de stabiliser la base de données après une suppression
+		setTimeout(() => {
+			syncMembres();
+		}, 1000);
 	}
 
     async function envoyerScan(data) {
