@@ -460,8 +460,12 @@
 			const data = await resp.json();
 			
 			if (data && data.membres) {
-				membresCache = data.membres;
-				localStorage.setItem('membres_cache', JSON.stringify(data.membres));
+			// On fusionne : On garde les nouveaux du serveur + les invités locaux pas encore sync
+			const idsServeur = new Set(data.membres.map(m => m.id));
+			const invitesLocaux = membresCache.filter(m => m.etat === "INVITÉ" && !idsServeur.has(m.id));
+			
+			membresCache = [...data.membres, ...invitesLocaux];
+			localStorage.setItem('membres_cache', JSON.stringify(membresCache));
 
 				// On récupère les IDs classés par période envoyés par Google
 				presentsAujourdhui = {
@@ -661,7 +665,12 @@
 		document.getElementById('overlay').style.display = "block";
 		card.style.display = "block";
 	}
-
+	function getPeriodeActuelle() {
+		const hour = new Date().getHours();
+		if (hour < 12) return "MATIN";
+		if (hour < 17) return "MIDI";
+		return "SOIR";
+	}
 	async function sauvegarderInvite(id) {
 		const p = document.getElementById('ins-prenom').value.trim();
 		const n = document.getElementById('ins-nom').value.trim();
@@ -694,7 +703,11 @@
 		
 		// On sauvegarde le cache mis à jour dans le téléphone
 		localStorage.setItem('membres_cache', JSON.stringify(membresCache));
-
+		const periodeActuelle = getPeriodeActuelle(); // On va créer cette petite fonction
+		presentsAujourdhui[periodeActuelle].push(id);
+		// On met à jour le gros chiffre à l'écran
+		const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
+		document.getElementById('nb-presents').innerText = new Set(tous).size;
 		document.getElementById('result-card').innerHTML = `
 			<div style="padding:20px;">
 				<div style="font-size:40px;">💜</div>
