@@ -284,7 +284,7 @@
 				// Mapping des membres et tri alphabétique par prénom
 				let listeTriee = ids.map(id => {
 					const m = membresCache.find(x => x.id === id);
-					return m ? m : { id: id, prenom: "INVITÉ", nom: "("+id.slice(-4)+")" };
+					return m ? m : { id: id, prenom: "Inconnu", nom: "("+id.slice(-4)+")" };
 				}).sort((a, b) => a.prenom.localeCompare(b.prenom));
 
 				listeTriee.forEach(m => {
