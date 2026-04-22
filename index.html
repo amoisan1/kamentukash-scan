@@ -666,41 +666,43 @@
 		const p = document.getElementById('ins-prenom').value.trim();
 		const n = document.getElementById('ins-nom').value.trim();
 		const btn = document.getElementById('btn-save-invite');
+		
 		if(!p || !n) return alert("Nom et Prénom requis");
 
 		btn.disabled = true;
 		btn.innerHTML = '<span class="spinner"></span> PRÉPARATION...';
 
-		try {
-			// On prépare l'objet complet pour la file d'attente
-			const dataInvite = {
-				code: id,
-				prenom: p,
-				nom: n,
-				surveillant: surveillantActif,
-				statut: "INVITÉ", // Précise bien le statut ici
-				timestamp: new Date().toISOString()
-			};
+		const dataInvite = {
+			code: id,
+			prenom: p,
+			nom: n,
+			surveillant: surveillantActif,
+			statut: "INVITÉ", 
+			timestamp: new Date().toISOString()
+		};
 
-			// On l'envoie vers notre moteur universel (qui gère le offline)
-			envoyerScan(dataInvite);
+		// Envoi vers Google Sheets (moteur universel)
+		envoyerScan(dataInvite);
 
-			// On l'ajoute au cache local pour qu'il soit trouvable immédiatement en recherche manuelle
-			membresCache.push({ id: id, prenom: p, nom: n, etat: "INVITÉ" });
+		// CRUCIAL : On ajoute l'invité avec son VRAI nom dans le cache local immédiatement
+		membresCache.push({ 
+			id: id, 
+			prenom: p, 
+			nom: n, 
+			etat: "INVITÉ" 
+		});
+		
+		// On sauvegarde le cache mis à jour dans le téléphone
+		localStorage.setItem('membres_cache', JSON.stringify(membresCache));
 
-			document.getElementById('result-card').innerHTML = `
-				<div style="padding:20px;">
-					<div style="font-size:40px;">💜</div>
-					<h3>INVITÉ ACCEPTÉ</h3>
-					<p>${p} ${n}</p>
-					<p style="font-size:0.75rem; color:#666;">L'enregistrement sera synchronisé en arrière-plan.</p>
-					<button class="btn-next" onclick="closeCard()">CONTINUER</button>
-				</div>`;
-		} catch (e) {
-			alert("Erreur locale lors de la préparation.");
-			btn.disabled = false;
-			btn.innerText = "RÉESSAYER";
-		}
+		document.getElementById('result-card').innerHTML = `
+			<div style="padding:20px;">
+				<div style="font-size:40px;">💜</div>
+				<h3>INVITÉ ENREGISTRÉ</h3>
+				<p><strong>${p} ${n}</strong></p>
+				<p style="font-size:0.75rem; color:#666;">L'enregistrement est sauvegardé localement et sera synchronisé.</p>
+				<button class="btn-next" onclick="closeCard()">CONTINUER</button>
+			</div>`;
 	}
     function ouvrirRecherche() {
 		modeRechercheManuelle = true; // On active le flag
@@ -716,25 +718,40 @@
     }
 
    function filtrerRecherche() {
-        const val = document.getElementById('input-recherche').value.toLowerCase();
-        const container = document.getElementById('liste-resultats');
-        container.innerHTML = '';
-        let res = membresCache.filter(m => m.prenom.toLowerCase().includes(val) || m.nom.toLowerCase().includes(val));
-        res.sort((a, b) => {
-            const prenomA = a.prenom.toLowerCase();
-            const prenomB = b.prenom.toLowerCase();
-            if (prenomA < prenomB) return -1;
-            if (prenomA > prenomB) return 1;
-            return a.nom.toLowerCase().localeCompare(b.nom.toLowerCase());
-        });
-        res.forEach(m => {
-            const div = document.createElement('div');
-            div.className = 'item-recherche';
-            div.innerHTML = `<strong>${m.prenom} ${m.nom}</strong><br><small>${m.id} | ${m.etat}</small>`;
-            div.onclick = () => { confirmermembreManuel(m); }; // Correction ici
-            container.appendChild(div);
-        });
-    }
+		// 1. On récupère la saisie et on retire les accents pour une recherche "plus intelligente"
+		const val = document.getElementById('input-recherche').value.toLowerCase()
+					.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+		
+		const container = document.getElementById('liste-resultats');
+		container.innerHTML = '';
+
+		// 2. Filtrage : on cherche dans le prénom, le nom ou l'ID
+		let res = membresCache.filter(m => {
+			const nomComplet = `${m.prenom} ${m.nom}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+			return nomComplet.includes(val) || m.id.toLowerCase().includes(val);
+		});
+
+		// 3. LE TRI : On classe par prénom, puis par nom si les prénoms sont identiques
+		res.sort((a, b) => {
+			const prenomA = a.prenom.toLowerCase();
+			const prenomB = b.prenom.toLowerCase();
+			
+			if (prenomA < prenomB) return -1;
+			if (prenomA > prenomB) return 1;
+			
+			// Si les prénoms sont les mêmes, on trie par nom
+			return a.nom.toLowerCase().localeCompare(b.nom.toLowerCase());
+		});
+
+		// 4. Affichage des résultats triés
+		res.forEach(m => {
+			const div = document.createElement('div');
+			div.className = 'item-recherche';
+			div.innerHTML = `<strong>${m.prenom} ${m.nom}</strong><br><small>${m.id} | ${m.etat}</small>`;
+			div.onclick = () => { confirmermembreManuel(m); }; 
+			container.appendChild(div);
+		});
+	}
 
     function stopScan() {
 		if (html5QrCode && html5QrCode.isScanning){
