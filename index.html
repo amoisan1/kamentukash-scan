@@ -267,47 +267,61 @@
 		}
 	}
 	function afficherListePresents() {
-		const periodes = ["MATIN", "MIDI", "SOIR"];
-		
-		periodes.forEach(p => {
-			const container = document.getElementById(`liste-${p}`);
-			const badgeCount = document.getElementById(`count-${p}`);
-			container.innerHTML = '';
+			const periodes = ["MATIN", "MIDI", "SOIR"];
 			
-			// On récupère les IDs de cette période depuis l'objet presentsAujourdhui
-			const ids = presentsAujourdhui[p] || [];
-			badgeCount.innerText = ids.length + " passage(s)";
+			periodes.forEach(p => {
+				const container = document.getElementById(`liste-${p}`);
+				const badgeCount = document.getElementById(`count-${p}`);
+				container.innerHTML = '';
+				
+				const ids = presentsAujourdhui[p] || [];
+				badgeCount.innerText = ids.length + " passage(s)";
 
-			if (ids.length === 0) {
-				container.innerHTML = '<p style="padding: 10px; color: #bbb; font-size: 0.8rem; font-style: italic;">Aucun membre scanné</p>';
-			} else {
-				// Mapping des membres et tri alphabétique par prénom
-				let listeTriee = ids.map(id => {
-					const m = membresCache.find(x => x.id === id);
-					return m ? m : { id: id, prenom: "Inconnu", nom: "("+id.slice(-4)+")" };
-				}).sort((a, b) => a.prenom.localeCompare(b.prenom));
+				if (ids.length === 0) {
+					container.innerHTML = '<p style="padding: 10px; color: #bbb; font-size: 0.8rem; font-style: italic;">Aucun membre scanné</p>';
+				} else {
+					let listeTriee = ids.map(id => {
+						// 1. Priorité : On cherche le nom dans le dictionnaire reçu du serveur (Feuille Presence)
+						// C'est ce qui contient le nom des invités ET des membres scannés
+						if (window.detailsInvitesCache && window.detailsInvitesCache[id]) {
+							const nomComplet = window.detailsInvitesCache[id];
+							const parts = nomComplet.split(' ');
+							return { 
+								id: id, 
+								prenom: parts[0] || "INVITÉ", 
+								nom: parts.slice(1).join(' ') || ("(" + id.slice(-4) + ")") 
+							};
+						}
 
-				listeTriee.forEach(m => {
-					const div = document.createElement('div');
-					div.style.cssText = "padding: 10px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;";
-					div.innerHTML = `
-						<div style="text-align: left;">
-							<div style="font-weight: 600; color: #333; font-size: 0.9rem;">${m.prenom} ${m.nom}</div>
-							<div style="font-size: 0.7rem; color: #999;">${m.id}</div>
-						</div>
-						<div onclick="demanderSuppression('${m.id}', '${m.prenom} ${m.nom}', '${p}')" 
-							 style="color: var(--error); font-size: 0.65rem; font-weight: bold; cursor: pointer; border: 1.5px solid var(--error); padding: 4px 8px; border-radius: 8px;">
-							EFFACER
-						</div>
-					`;
-					container.appendChild(div);
-				});
-			}
-		});
+						// 2. Secours : Si pas encore synchronisé, on cherche dans la liste des membres
+						const m = membresCache.find(x => x.id === id);
+						if (m) return m;
 
-		document.getElementById('presents-modal-overlay').style.display = 'block';
-		document.getElementById('presents-modal').style.display = 'block';
-	}
+						// 3. Par défaut
+						return { id: id, prenom: "INVITÉ", nom: "(" + id.slice(-4) + ")" };
+					}).sort((a, b) => a.prenom.localeCompare(b.prenom));
+
+					listeTriee.forEach(m => {
+						const div = document.createElement('div');
+						div.style.cssText = "padding: 10px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;";
+						div.innerHTML = `
+							<div style="text-align: left;">
+								<div style="font-weight: 600; color: #333; font-size: 0.9rem;">${m.prenom} ${m.nom}</div>
+								<div style="font-size: 0.7rem; color: #999;">${m.id}</div>
+							</div>
+							<div onclick="demanderSuppression('${m.id}', '${m.prenom} ${m.nom}', '${p}')" 
+								 style="color: var(--error); font-size: 0.65rem; font-weight: bold; cursor: pointer; border: 1.5px solid var(--error); padding: 4px 8px; border-radius: 8px;">
+								EFFACER
+							</div>
+						`;
+						container.appendChild(div);
+					});
+				}
+			});
+
+			document.getElementById('presents-modal-overlay').style.display = 'block';
+			document.getElementById('presents-modal').style.display = 'block';
+		}
 	function demanderSuppression(id, nomComplet, periode) {
 		fermerListePresents();
 		const card = document.getElementById('result-card');
@@ -473,7 +487,10 @@
 					"MIDI": data.presentsIds.MIDI || [],
 					"SOIR": data.presentsIds.SOIR || []
 				};
-
+				if (data.detailsInvites) {
+				// detailsInvites serait un objet : { "ID_INVITE": "Prénom Nom", ... }
+				window.detailsInvitesCache = data.detailsInvites;
+				}
 				// Calcul du total unique pour le gros chiffre (Jean compte pour 1 même s'il est là Matin et Soir)
 				const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
 				document.getElementById('nb-presents').innerText = new Set(tous).size;
