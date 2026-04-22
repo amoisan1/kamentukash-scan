@@ -474,30 +474,31 @@
 			const data = await resp.json();
 			
 			if (data && data.membres) {
-			// On fusionne : On garde les nouveaux du serveur + les invités locaux pas encore sync
-			const idsServeur = new Set(data.membres.map(m => m.id));
-			const invitesLocaux = membresCache.filter(m => m.etat === "INVITÉ" && !idsServeur.has(m.id));
-			
-			membresCache = [...data.membres, ...invitesLocaux];
+			// On ne garde que les membres officiels envoyés par le serveur
+			membresCache = data.membres;
 			localStorage.setItem('membres_cache', JSON.stringify(membresCache));
 
-				// On récupère les IDs classés par période envoyés par Google
-				presentsAujourdhui = {
-					"MATIN": data.presentsIds.MATIN || [],
-					"MIDI": data.presentsIds.MIDI || [],
-					"SOIR": data.presentsIds.SOIR || []
-				};
-				if (data.detailsInvites) {
-				// detailsInvites serait un objet : { "ID_INVITE": "Prénom Nom", ... }
-				window.detailsInvitesCache = data.detailsInvites;
-				}
-				// Calcul du total unique pour le gros chiffre (Jean compte pour 1 même s'il est là Matin et Soir)
-				const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
-				document.getElementById('nb-presents').innerText = new Set(tous).size;
+			// On récupère les IDs classés par période
+			presentsAujourdhui = {
+				"MATIN": data.presentsIds.MATIN || [],
+				"MIDI": data.presentsIds.MIDI || [],
+				"SOIR": data.presentsIds.SOIR || []
+			};
 
-				document.getElementById('status-text').innerText = membresCache.length + " membres sync";
-				document.getElementById('status-dot').classList.add('online');
+			// On met à jour le dictionnaire des noms (pour les invités et membres)
+			if (data.detailsInvites) {
+				window.detailsInvitesCache = data.detailsInvites;
+				localStorage.setItem('details_invites_cache', JSON.stringify(window.detailsInvitesCache));
 			}
+
+			// Mise à jour du compteur bleu (Présences uniques)
+			const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
+			document.getElementById('nb-presents').innerText = new Set(tous).size;
+
+			// Mise à jour du statut (Compteur de membres officiels)
+			document.getElementById('status-text').innerText = membresCache.length + " membres sync";
+			document.getElementById('status-dot').classList.add('online');
+		}
 		} catch (e) { 
 			document.getElementById('status-text').innerText = "Mode Hors-ligne"; 
 		}
