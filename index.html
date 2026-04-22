@@ -698,6 +698,12 @@
 		btn.disabled = true;
 		btn.innerHTML = '<span class="spinner"></span> PRÉPARATION...';
 
+		// 1. On mémorise le nom UNIQUEMENT pour l'affichage (dictionnaire séparé)
+		// On ne fait SURTOUT PAS de membresCache.push()
+		if (!window.detailsInvitesCache) window.detailsInvitesCache = {};
+		window.detailsInvitesCache[id] = p + " " + n;
+		localStorage.setItem('details_invites_cache', JSON.stringify(window.detailsInvitesCache));
+
 		const dataInvite = {
 			code: id,
 			prenom: p,
@@ -707,30 +713,24 @@
 			timestamp: new Date().toISOString()
 		};
 
-		// Envoi vers Google Sheets (moteur universel)
+		// 2. Envoi vers Google Sheets
 		envoyerScan(dataInvite);
 
-		// CRUCIAL : On ajoute l'invité avec son VRAI nom dans le cache local immédiatement
-		membresCache.push({ 
-			id: id, 
-			prenom: p, 
-			nom: n, 
-			etat: "INVITÉ" 
-		});
-		
-		// On sauvegarde le cache mis à jour dans le téléphone
-		localStorage.setItem('membres_cache', JSON.stringify(membresCache));
-		const periodeActuelle = getPeriodeActuelle(); // On va créer cette petite fonction
-		presentsAujourdhui[periodeActuelle].push(id);
-		// On met à jour le gros chiffre à l'écran
+		// 3. Ajout à la liste des présences locales pour l'affichage immédiat
+		const periodeActuelle = getPeriodeActuelle();
+		if (!presentsAujourdhui[periodeActuelle].includes(id)) {
+			presentsAujourdhui[periodeActuelle].push(id);
+		}
+
+		// 4. Mise à jour du compteur de PRÉSENCES (le chiffre bleu)
 		const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
 		document.getElementById('nb-presents').innerText = new Set(tous).size;
+
 		document.getElementById('result-card').innerHTML = `
 			<div style="padding:20px;">
 				<div style="font-size:40px;">💜</div>
 				<h3>INVITÉ ENREGISTRÉ</h3>
 				<p><strong>${p} ${n}</strong></p>
-				<p style="font-size:0.75rem; color:#666;">L'enregistrement est sauvegardé localement et sera synchronisé.</p>
 				<button class="btn-next" onclick="closeCard()">CONTINUER</button>
 			</div>`;
 	}
