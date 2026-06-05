@@ -741,9 +741,16 @@
 	}
     function ouvrirRecherche() {
 		modeRechercheManuelle = true; // On active le flag
+		// 1. On vide le champ de texte de la recherche précédente
+		const inputRecherche = document.getElementById('input-recherche');
+		if (inputRecherche) {
+			inputRecherche.value = '';
+		}
         document.getElementById('search-modal-overlay').style.display = 'block';
         document.getElementById('search-modal').style.display = 'block';
-        document.getElementById('input-recherche').focus();
+		
+        //document.getElementById('input-recherche').focus();
+		inputRecherche.focus();
         filtrerRecherche();
     }
 
