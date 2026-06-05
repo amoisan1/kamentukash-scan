@@ -220,7 +220,7 @@
 </div>
 <script>
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwQOsi7pSMMQRN_Tyw24vHFHcmlCI6HH_6fz0N8kDw81jL_sq1AH0xXBrEbj-9shFte/exec";
-    const PROXY = "https://api.codetabs.com/v1/proxy?quest=";
+    //const PROXY = "https://api.codetabs.com/v1/proxy?quest=";
 	const GITHUB_USER = "amoisan1";
 	const GITHUB_REPO = "kamentukash-scan";
 
@@ -357,8 +357,8 @@
 			
 			try {
 				// On envoie la requête
-				const resp = await fetch(PROXY + encodeURIComponent(url));
-				
+				//const resp = await fetch(PROXY + encodeURIComponent(url));
+				const resp = await fetch(url, { redirect: "follow" });
 				// On essaye de lire la réponse mais on ne bloque pas si elle est illisible
 				await resp.json().catch(e => console.log("Réponse non-JSON reçue"));
 				
@@ -414,7 +414,8 @@
 
 			try {
 				const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(uniqueId)}&prenom=${encodeURIComponent(prenom)}&nom=${encodeURIComponent(nom)}&surveillant=${encodeURIComponent(surveillantActif)}&statut=INVITÉ`;
-				await fetch(PROXY + encodeURIComponent(url));
+				//await fetch(PROXY + encodeURIComponent(url));
+				await fetch(url, { redirect: "follow" });
 			} catch (e) {
 				console.error("Erreur sur l'invité " + i, e);
 			}
@@ -454,7 +455,8 @@
         }
 
         try {
-            const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
+            const resp = await fetch(SCRIPT_URL + "?action=getSurveillants", { redirect: "follow" });
+			//const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=getSurveillants"));
             const data = await resp.json();
             const select = document.getElementById('select-surveillant');
             if (select) {
@@ -470,7 +472,8 @@
 
     async function syncMembres() {
 		try {
-			const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
+			const resp = await fetch(SCRIPT_URL + "?action=sync", { redirect: "follow" });
+			//const resp = await fetch(PROXY + encodeURIComponent(SCRIPT_URL + "?action=sync"));
 			const data = await resp.json();
 			
 			if (data && data.membres) {
@@ -821,7 +824,8 @@
 		const url = `${SCRIPT_URL}?${params}`;
 
 		try {
-			await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+			//await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+			await fetch(url, { redirect: "follow" });
 			updateStatusAttente();
 		} catch (e) {
 			// Si ça échoue, on vérifie si c'est déjà dans la file, sinon on l'ajoute
@@ -849,7 +853,8 @@
 			const url = `${SCRIPT_URL}?${params}`;
 
 			try {
-				await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+				//await fetch(PROXY + encodeURIComponent(url), { mode: 'no-cors' });
+				await fetch(url, { redirect: "follow" });
 				fileAttenteScans.shift(); // On enlève de la file si succès
 				localStorage.setItem('file_attente', JSON.stringify(fileAttenteScans));
 				await new Promise(r => setTimeout(r, 500)); 
