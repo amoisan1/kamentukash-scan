@@ -24,8 +24,9 @@
         }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg-gradient); text-align: center; min-height: 100vh; overflow-x: hidden; }
         
-        #status-bar { display: flex; align-items: center; justify-content: center; padding: 12px; background: white; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.85rem; font-weight: 600; position: sticky; top: 0; z-index: 10; }
-        #status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 8px; }
+        //#status-bar { display: flex; align-items: center; justify-content: center; padding: 12px; background: white; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.85rem; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+        #status-bar { display: flex; align-items: center;justify-content: center;padding: 12px; padding-top: calc(12px + env(safe-area-inset-top));background: white; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.85rem; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+		#status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 8px; }
         .online { background: #4CAF50 !important; box-shadow: 0 0 8px #4CAF50; }
 
         .glass-card { background: rgba(255,255,255,0.95); padding: 30px 20px; border-radius: 25px; margin: 20px auto; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
