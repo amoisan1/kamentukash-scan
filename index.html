@@ -24,7 +24,6 @@
         }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--bg-gradient); text-align: center; min-height: 100vh; overflow-x: hidden; }
         
-        //#status-bar { display: flex; align-items: center; justify-content: center; padding: 12px; background: white; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.85rem; font-weight: 600; position: sticky; top: 0; z-index: 10; }
         #status-bar { display: flex; align-items: center;justify-content: center;padding: 12px; padding-top: calc(12px + env(safe-area-inset-top));background: white; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.85rem; font-weight: 600; position: sticky; top: 0; z-index: 10; }
 		#status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; margin-right: 8px; }
         .online { background: #4CAF50 !important; box-shadow: 0 0 8px #4CAF50; }
@@ -275,7 +274,9 @@
 				const badgeCount = document.getElementById(`count-${p}`);
 				container.innerHTML = '';
 				
-				const ids = presentsAujourdhui[p] || [];
+				//const ids = presentsAujourdhui[p] || []; enlevé le 13 sept 2026
+				const ids = Array.from(new Set(presentsAujourdhui[p] || []));//ajouté le 13 sept 2026
+				
 				badgeCount.innerText = ids.length + " passage(s)";
 
 				if (ids.length === 0) {
@@ -405,27 +406,43 @@
 
 		btn.disabled = true;
 		const card = document.getElementById('result-card');
+		const periodeActuelle = getPeriodeActuelle();
 		
+		if (!window.detailsInvitesCache) window.detailsInvitesCache = {};
+
 		for (let i = 1; i <= quantite; i++) {
 			btn.innerHTML = `<span class="spinner"></span> Envoi ${i} / ${quantite}`;
 			
-			const uniqueId = `KAM-ID-9999-G${Date.now().toString().slice(-4)}${i}`;
+			//const uniqueId = `KAM-ID-9999-G${Date.now().toString().slice(-4)}${i}`;
+			const uniqueId = `KAM-ID-9999-G${Date.now().toString().slice(-4)}-${i}-${Math.floor(Math.random()*1000)}`;
 			const prenom = "Groupe";
 			const nom = `Invité ${i}`;
 
+			// 1. Génération automatique du nom dans le dictionnaire local
+			window.detailsInvitesCache[uniqueId] = `${prenom} ${nom}`;
+
+			// 2. Ajout immédiat dans les présences locales
+			if (!presentsAujourdhui[periodeActuelle].includes(uniqueId)) {
+				presentsAujourdhui[periodeActuelle].push(uniqueId);
+			}
+
+			// 3. Envoi vers Google Sheets en arrière-plan
 			try {
 				const url = `${SCRIPT_URL}?action=inscrire&id=${encodeURIComponent(uniqueId)}&prenom=${encodeURIComponent(prenom)}&nom=${encodeURIComponent(nom)}&surveillant=${encodeURIComponent(surveillantActif)}&statut=INVITÉ`;
-				//await fetch(PROXY + encodeURIComponent(url));
 				await fetch(url, { redirect: "follow" });
 			} catch (e) {
 				console.error("Erreur sur l'invité " + i, e);
 			}
 		}
 
-		
-		
+		// Sauvegarde du cache local
+		localStorage.setItem('details_invites_cache', JSON.stringify(window.detailsInvitesCache));
 
-		// Affichage final
+		// 4. Mise à jour immédiate du compteur bleu
+		const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
+		document.getElementById('nb-presents').innerText = new Set(tous).size;
+
+		// Affichage de confirmation
 		card.innerHTML = `
 			<div style="padding:20px;">
 				<div style="font-size:40px;">👥</div>
@@ -434,6 +451,8 @@
 				<button class="btn-next" onclick="closeCard()">TERMINER</button>
 			</div>`;
 	}
+
+		
 	function fermerListePresents() {
 		document.getElementById('presents-modal-overlay').style.display = 'none';
 		document.getElementById('presents-modal').style.display = 'none';
@@ -446,7 +465,11 @@
             document.getElementById('status-text').innerText = membresCache.length + " membres (Local)";
             document.getElementById('status-dot').style.backgroundColor = "#ffa500";
         }
-
+		// --- AJOUT : Chargement du dictionnaire des noms/invités ---
+		const invitesData = localStorage.getItem('details_invites_cache');
+		if (invitesData) {
+			window.detailsInvitesCache = JSON.parse(invitesData);
+		}
         const garde = localStorage.getItem('surveillant_nom');
         if (garde) {
             surveillantActif = garde;
@@ -555,21 +578,32 @@
 		showResult(m, dejaLa, true);
 	}
     function validerMembre(m) {
-		// 1. On vérifie si l'ID est déjà dans le Set local pour l'affichage
+		const periodeActuelle = getPeriodeActuelle();
+		
+		// 1. Mémorisation du nom dans le dictionnaire d'affichage
+		if (!window.detailsInvitesCache) window.detailsInvitesCache = {};
+		window.detailsInvitesCache[m.id] = `${m.prenom} ${m.nom}`;
+
+		// 2. Vérification doublon avant insertion
 		const estUnDoublon = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR].includes(m.id);
 		
-		// 2. On affiche le résultat à l'utilisateur
+		if (!presentsAujourdhui[periodeActuelle].includes(m.id)) {
+			presentsAujourdhui[periodeActuelle].push(m.id);
+		}
+		
+		// 3. Mise à jour immédiate du compteur bleu à l'écran
+		const tous = [...presentsAujourdhui.MATIN, ...presentsAujourdhui.MIDI, ...presentsAujourdhui.SOIR];
+		document.getElementById('nb-presents').innerText = new Set(tous).size;
+
+		// 4. Affichage de la carte résultat
 		showResult(m, estUnDoublon);
 		
-		// 3. CORRECTIF CRUCIAL : On envoie TOUJOURS le scan à Google Sheets
-		// même si c'est un "doublon" local, pour être sûr que la Sheet soit à jour
+		// 5. Envoi vers le serveur
 		envoyerScan({ 
 			code: m.id, 
 			surveillant: surveillantActif, 
 			timestamp: new Date().toISOString() 
 		});
-		
-		
 	}
 
     function showResult(m, dejaPresent = false, demandeConfirmation = false) {
@@ -820,7 +854,7 @@
 		// à Google Sheets de stabiliser la base de données après une suppression
 		setTimeout(() => {
 			syncMembres();
-		}, 1000);
+		}, 500);
 	}
 
     async function envoyerScan(data) {
